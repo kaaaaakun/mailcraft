@@ -195,6 +195,25 @@ Copy `node_modules/mailcraft/dist/mailcraft.umd.cjs` and `mailcraft.css` to your
 - The **Custom HTML** block is rendered verbatim in the exported email. Only expose it to trusted authors.
 - Rich-text sanitization runs in the browser editor. If you accept design JSON from untrusted sources, sanitize `text` block HTML server-side before sending.
 
+## Keyboard shortcuts
+
+Shortcuts apply while focus is inside the editor (or, when nothing is focused, while the last click / focus was in that editor, so several editors on one page do not interfere). They never override native text editing in inputs and in text being edited.
+
+| Keys | Action |
+|---|---|
+| `Ctrl/Cmd+Z`, `Ctrl/Cmd+Shift+Z`, `Ctrl/Cmd+Y` | Undo, redo, redo |
+| `Delete` / `Backspace` | Delete the focused / selected block or row (not while typing in a field) |
+| `Esc` | Deselect (the right panel returns to the email settings) |
+| `Tab` | Moves into the canvas (one tab stop), then through the toolbar and panel |
+| `Arrow keys`, `Home`, `End` (on a focused block or row) | Move the selection through rows and blocks in document order; focus follows |
+| `Enter` / `Space` (on a focused block or row) | Select it; on a selected text block, start editing |
+| `Shift+Up` (on a focused block) | Select its parent row (also: the toolbar's "Select parent row" button, or the strip in the row's left margin) |
+| `Alt+Up` / `Alt+Down` | Move the selected block (within its column) or row up / down |
+| Sidebar tabs: `Left`/`Right` (or `Up`/`Down`), `Home`, `End` | Switch between Content and Rows |
+| Number fields: `Up`/`Down`, `Shift+Up`/`Down` | Step by 1 step / 10 steps; the value is clamped on blur or `Enter` |
+
+Moves, additions and deletions are announced through an `aria-live` region (localized). Image uploads accept PNG, JPEG, GIF and WebP up to `maxImageBytes` (default 5 MB, checked before `imageUploader` runs); rejections and uploader errors are shown inline.
+
 ## Email client compatibility
 
 Output is table-based with inline styles and a small `@media` block for mobile stacking. Image `width` uses percentages, which Outlook (Word engine) may ignore. Always test in your target clients.
