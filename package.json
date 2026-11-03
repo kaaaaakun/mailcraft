@@ -1,9 +1,9 @@
 {
   "name": "mailcraft",
   "version": "0.1.0",
-  "description": "Open-source, embeddable drag & drop email editor (an Unlayer-style alternative).",
+  "description": "Source-available, embeddable drag & drop email editor (an Unlayer-style alternative).",
   "type": "module",
-  "license": "MIT",
+  "license": "PolyForm-Noncommercial-1.0.0",
   "repository": {
     "type": "git",
     "url": "git+https://github.com/kaaaaakun/mailcraft.git"

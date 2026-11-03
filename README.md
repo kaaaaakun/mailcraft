@@ -1,6 +1,6 @@
 # Mailcraft
 
-An open-source, embeddable **drag & drop email editor** — MIT-licensed, dependency-free and framework-agnostic. Its layout and interaction conventions (left tools palette with tiles, context-sensitive right properties panel, row layouts, selection toolbar, collapsible properties) are *inspired by* Unlayer; Mailcraft is **not affiliated with Unlayer** and shares no code, assets or branding with it.
+A source-available, embeddable **drag & drop email editor** — free for noncommercial use ([PolyForm Noncommercial 1.0.0](LICENSE)), dependency-free and framework-agnostic. Its layout and interaction conventions (left tools palette with tiles, context-sensitive right properties panel, row layouts, selection toolbar, collapsible properties) are *inspired by* Unlayer; Mailcraft is **not affiliated with Unlayer** and shares no code, assets or branding with it.
 
 - 🧱 Rows → columns → blocks model (text, heading, image, button, divider, spacer, custom HTML)
 - 🖱️ Drag & drop from the palette, reorder blocks and rows, click-to-add
@@ -168,4 +168,14 @@ Output is table-based with inline styles and a small `@media` block for mobile s
 - Outlook VML buttons
 - React / Vue wrappers
 
-See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works. License: MIT.
+See [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) for how it works.
+
+## License
+
+Mailcraft is licensed under the [PolyForm Noncommercial License 1.0.0](LICENSE) (`PolyForm-Noncommercial-1.0.0`). It is source-available, not open source in the OSI sense.
+
+- Noncommercial use is free. The license says: "Any noncommercial purpose is a permitted purpose." It also lists personal use (research, experiment, and testing for the benefit of public knowledge, personal study, private entertainment, hobby projects, amateur pursuits, or religious observance, without any anticipated commercial application) and use by any charitable organization, educational institution, public research organization, public safety or health organization, environmental protection organization, or government institution. See the license text for the exact terms.
+- Commercial use requires a separate commercial license. Please open an issue at https://github.com/kaaaaakun/mailcraft/issues to get in touch.
+- Earlier versions were released under MIT; see [LICENSE-HISTORY.md](LICENSE-HISTORY.md).
+
+This is not legal advice; the text of the license governs.
