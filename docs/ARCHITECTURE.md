@@ -70,7 +70,27 @@ Design
 - **左サイドバー** (`renderSidebarEl`): 「追加」系のみ。選択状態に依存しないため、選択変更では再描画しません(ドロップ完了時にドラッグ元タイルが差し替わるのを避けるため)。タブ状態は `tab`(`content` | `rows`)。
 - **右パネル** (`renderPanelEl`): 選択状態から表示を決めます。何も選択していなければ全体設定、行/ブロックを選択すればそのプロパティ(テキストブロックは文字装飾セクション付き)。キャンバスの空白クリックで選択解除すると全体設定に戻ります。`data-view="body|props"` で状態を確認できます。
 - アコーディオンの開閉状態は `collapsed` セットに保持し、再描画しても維持します。
-- プレビュー中は両サイドバーを非表示。幅 820px 以下では「上: 横スクロールのパレット帯 → キャンバス → 下: 右パネル」の縦積みになり、全体がスクロールします。配色は `--mc-*` テーマ変数のみを使うためダークモードにも追従します。
+- プレビュー中は両サイドバーを非表示。レイアウトの切替は次節。配色は `--mc-*` テーマ変数のみを使うためダークモードにも追従します。
+
+## レイアウトの切替 (`layout.ts`)
+
+ライブラリは他サイトの一部として埋め込まれるため、**ブラウザ幅(`@media`)ではなくエディタ自身のコンテナ幅**で形を決めます。
+
+```
+ ResizeObserver(root) ──幅(px)──▶ resolveLayout(layout, width) ──▶ root.dataset.layout = wide | compact | stacked
+                                      ▲                                     │
+ createEditor({layout}) / setLayout() ┘ (mergeLayout で検証・累積)           ▼
+                                                        CSS: .mc-root[data-layout=compact] .mc-sidebar { ... }
+```
+
+- 幅の判定は `auto` のとき `幅 >= breakpoints.compact` → wide、`>= breakpoints.stacked` → compact、それ未満 → stacked(既定 1100 / 820)。`split` / `compact` / `stacked` は幅に関係なく固定。
+- **CSS は `data-layout` 属性だけ**を見ます(旧 `@media (max-width:820px)` は廃止)。そのため広い画面の狭いカラムに置いても縦積みになります。
+- レイアウト変更では **再レンダリングしません**。属性と CSS 変数(`--mc-left-w` / `--mc-right-w`)を書き換えるだけなので、選択・スクロール・フォーカス・パレットの DOM はそのままです。
+- `compact` は左パレットを 92px のアイコンレール(1 列のタイル)にします。タイルはそのままなので D&D もクリック追加も動きます。
+- `sidebars.left/right = false` は `hidden` 属性で非表示にします(DOM は残す)。左を隠すとパレットからの追加はできなくなるため、ホスト側で別の追加手段を用意してください。
+- **jsdom / 古いブラウザ**: `ResizeObserver` が無ければ `window` の `resize` で再計測するフォールバックを使い、幅が不明(0)なときは wide とします。SSR では DOM が無いのでそもそも `createEditor` は動きません(HTML 書き出しの `renderHtml` は DOM 不要)。
+- 入力は `mergeLayout` で防御的に検証します(不正値は無視・幅は clamp・`compact < stacked` の組は無視)。`setLayout` は `setTheme` と同様に部分指定を累積します。
+- テスト: `tests/layout.test.ts`(ResizeObserver をモック)。実ブラウザ: `tests/e2e/layout-real.mjs`(ビューポートのリサイズ、広いページ内の狭いコンテナ、固定モード、サイドバー、各モードでの D&D)。
 
 ## テーマ (`theme.ts`)
 
@@ -109,7 +129,7 @@ Design
 
 ```bash
 npm run typecheck   # 型
-npm test            # core / editor smoke / D&D / theme / i18n(jsdom)
+npm test            # core / editor smoke / D&D / theme / i18n / layout(jsdom)
 npm run build       # デモのビルド
 ```
 ブラウザでの D&D は Playwright(headless Chromium)で確認済み。

@@ -7,3 +7,5 @@ export type { Messages, MessageKey, I18n } from './i18n/index.js';
 export { renderHtml } from './core/render.js';
 export { createDesign, createSampleDesign, createBlock, createRow } from './core/defaults.js';
 export type * from './core/types.js';
+export { defaultLayout } from './editor/layout.js';
+export type { MailcraftLayout, MailcraftLayoutInput, LayoutMode, ResolvedLayout } from './editor/layout.js';

@@ -8,6 +8,7 @@ import { h } from './dom.js';
 import { createI18n, type I18n, type MessageKey, type Messages } from '../i18n/index.js';
 import { icon, type IconName } from './icons.js';
 import { BLOCK_ICON, BLOCK_LABEL, LAYOUTS, layoutPreview, renderPanel } from './panel.js';
+import { cloneLayout, defaultLayout, mergeLayout, resolveLayout, type MailcraftLayout, type MailcraftLayoutInput, type ResolvedLayout } from './layout.js';
 import { applyTheme, resolveTheme, type MailcraftTheme } from './theme.js';
 import './styles.css';
 
@@ -23,6 +24,10 @@ export interface EditorOptions {
   locale?: string;
   /** Custom / override dictionaries per locale. Missing keys fall back to the built-in dictionary, then to English. */
   messages?: Record<string, Partial<Messages>>;
+  /** Pane arrangement. Switches by the editor's container width by default (`mode: 'auto'`). Invalid values are ignored. */
+  layout?: MailcraftLayoutInput;
+  /** Called when the resolved arrangement changes (not for the initial one; read `getResolvedLayout()` for that). */
+  onLayoutChange?: (mode: ResolvedLayout) => void;
 }
 
 export interface EditorInstance {
@@ -37,6 +42,11 @@ export interface EditorInstance {
   /** Switch the UI language and re-render. */
   setLocale(locale: string): void;
   getLocale(): string;
+  /** Merge a partial layout into the current one (like `setTheme`). Does not touch the design or the selection. */
+  setLayout(layout: MailcraftLayoutInput): void;
+  getLayout(): MailcraftLayout;
+  /** The arrangement currently in effect (`data-layout` on the root). */
+  getResolvedLayout(): ResolvedLayout;
   destroy(): void;
 }
 
@@ -66,6 +76,9 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
   let tab: Tab = 'content';
   let i18n: I18n = createI18n(options.locale, options.messages);
   let userTheme: Partial<MailcraftTheme> = { ...(options.theme ?? {}) };
+  let layout: MailcraftLayout = mergeLayout(defaultLayout, options.layout);
+  let containerWidth = 0;
+  let resolved: ResolvedLayout = 'wide';
   const collapsed = new Set<string>();
   const t = (k: MessageKey, p?: Record<string, string | number>) => i18n.t(k, p);
 
@@ -81,6 +94,32 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
   container.replaceChildren(root);
   applyTheme(root, resolveTheme(userTheme));
   root.lang = i18n.locale;
+
+  // ---------- layout (container-width driven; see docs/ARCHITECTURE.md) ----------
+  function applyLayout(notify: boolean) {
+    sidebar.hidden = !layout.sidebars.left;
+    panel.hidden = !layout.sidebars.right;
+    root.style.setProperty('--mc-left-w', `${layout.leftWidth}px`);
+    root.style.setProperty('--mc-right-w', `${layout.rightWidth}px`);
+    const next = resolveLayout(layout, containerWidth);
+    root.dataset.layout = next;
+    if (next !== resolved) { resolved = next; if (notify) options.onLayoutChange?.(next); }
+  }
+  const measure = () => { containerWidth = root.getBoundingClientRect().width || root.clientWidth || 0; };
+  const onWindowResize = () => { measure(); applyLayout(true); };
+  let resizeObserver: ResizeObserver | null = null;
+  measure();
+  applyLayout(false);
+  if (typeof ResizeObserver !== 'undefined') {
+    resizeObserver = new ResizeObserver((entries) => {
+      const w = entries[entries.length - 1]?.contentRect?.width;
+      containerWidth = typeof w === 'number' ? w : root.clientWidth;
+      applyLayout(true);
+    });
+    resizeObserver.observe(root);
+  } else if (typeof window !== 'undefined') {
+    window.addEventListener('resize', onWindowResize); // graceful fallback: viewport resize re-measures the container
+  }
 
   let undoBtn: HTMLButtonElement;
   let redoBtn: HTMLButtonElement;
@@ -137,7 +176,7 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     const tabs: [Tab, IconName, string][] = [['content', 'sparkle', t('tabContent')], ['rows', 'rows', t('tabRows')]];
     sidebar.replaceChildren(
       h('div', { class: 'mc-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) =>
-        h('button', { type: 'button', role: 'tab', class: 'mc-tab' + (k === tab ? ' on' : ''), 'aria-selected': String(k === tab), 'data-tab': k, 'on:click': () => { tab = k; renderSidebarEl(); } }, icon(ic, 20), h('span', {}, label)))),
+        h('button', { type: 'button', role: 'tab', class: 'mc-tab' + (k === tab ? ' on' : ''), title: label, 'aria-selected': String(k === tab), 'data-tab': k, 'on:click': () => { tab = k; renderSidebarEl(); } }, icon(ic, 20), h('span', {}, label)))),
       h('div', { class: 'mc-panel-scroll' }, tab === 'content' ? renderContentTab() : renderRowsTab()));
   }
 
@@ -451,6 +490,9 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
       renderAll();
     },
     getLocale: () => i18n.locale,
-    destroy: () => { unsubscribe(); document.removeEventListener('dragend', onDragEnd, true); document.removeEventListener('drop', onDragEnd); document.removeEventListener('dragover', onDocDragOver, true); container.replaceChildren(); },
+    setLayout: (patch) => { layout = mergeLayout(layout, patch); applyLayout(true); },
+    getLayout: () => cloneLayout(layout),
+    getResolvedLayout: () => resolved,
+    destroy: () => { unsubscribe(); resizeObserver?.disconnect(); window.removeEventListener('resize', onWindowResize); document.removeEventListener('dragend', onDragEnd, true); document.removeEventListener('drop', onDragEnd); document.removeEventListener('dragover', onDocDragOver, true); container.replaceChildren(); },
   };
 }

@@ -68,6 +68,8 @@ interface EditorOptions {
   theme?: Partial<MailcraftTheme>;
   locale?: string;
   messages?: Record<string, Partial<Messages>>;
+  layout?: MailcraftLayoutInput;                 // see Layout
+  onLayoutChange?: (mode: 'wide' | 'compact' | 'stacked') => void;
 }
 
 interface EditorInstance {
@@ -79,11 +81,47 @@ interface EditorInstance {
   getTheme(): MailcraftTheme;
   setLocale(locale: string): void;
   getLocale(): string;
+  setLayout(layout: MailcraftLayoutInput): void;  // merge a partial layout, applied live
+  getLayout(): MailcraftLayout;
+  getResolvedLayout(): 'wide' | 'compact' | 'stacked';
   destroy(): void;
 }
 ```
 
-Also exported: `defaultTheme`, `darkTheme`, `locales`, `createI18n`, `renderHtml`, `createDesign`, `createSampleDesign(locale?)`, `createBlock`, `createRow`, and the types `MailcraftTheme`, `Messages`, `MessageKey`, `Design` & co.
+Also exported: `defaultTheme`, `darkTheme`, `defaultLayout`, `locales`, `createI18n`, `renderHtml`, `createDesign`, `createSampleDesign(locale?)`, `createBlock`, `createRow`, and the types `MailcraftTheme`, `MailcraftLayout`, `MailcraftLayoutInput`, `Messages`, `MessageKey`, `Design` & co.
+
+## Layout
+
+The three panes adapt to the width of the **editor's own container** (observed with `ResizeObserver`), not the browser window, so an editor embedded in a narrow column of a wide page still switches correctly.
+
+| Resolved (`data-layout`) | Container width (default) | Arrangement |
+|---|---|---|
+| `wide` | >= 1100px | palette (264px) / canvas / properties (320px) |
+| `compact` | 820-1100px | palette becomes a 92px icon rail (drag and click still work), slimmer properties panel |
+| `stacked` | < 820px | palette strip on top, canvas, properties below; the area scrolls |
+
+```ts
+const editor = createEditor(el, {
+  layout: {
+    mode: 'auto',                                   // 'auto' (default) | 'split' | 'compact' | 'stacked'
+    breakpoints: { compact: 1100, stacked: 820 },   // container px, used by 'auto'
+    sidebars: { left: true, right: true },          // false hides a pane
+    leftWidth: 264,                                 // px, wide layout only; clamped to 160-480
+    rightWidth: 320,                                // px; clamped to 240-560 (compact caps at 288)
+  },
+  onLayoutChange: (mode) => console.log(mode),      // 'wide' | 'compact' | 'stacked'
+});
+editor.setLayout({ mode: 'stacked' });              // partials accumulate, like setTheme
+editor.getLayout();                                 // full MailcraftLayout (a copy)
+editor.getResolvedLayout();                         // what is in effect right now
+```
+
+- `split` forces the wide 3-pane layout; `compact` and `stacked` force those layouts regardless of width.
+- Invalid values are ignored (never thrown), e.g. an unknown `mode`, non-numeric widths, or `compact < stacked` breakpoints.
+- `sidebars.left: false` hides the palette. Click-to-add and drag-from-palette are then **not available**; the host has to provide its own way to add content (or load designs). `sidebars.right: false` hides the properties panel.
+- The resolved arrangement is exposed as `data-layout="wide|compact|stacked"` on `.mc-root`, so host CSS can react to it. Layout changes never re-render the canvas or lose the selection.
+- Without `ResizeObserver` (old browsers, jsdom) the editor falls back to re-measuring on window `resize`, and to `wide` when the width is unknown.
+- The demo accepts `?layout=auto|split|compact|stacked`, `?left=0`, `?right=0` and `?width=<px>` (simulates a narrow container).
 
 ## Theming
 

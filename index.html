@@ -9,7 +9,8 @@
     :root[data-demo-theme=dark]{--bar:#1e222b;--bar-text:#e6e9ef;--bar-border:#2d323d;--bar-muted:#9aa3b2;--field:#14171d}
     html,body{margin:0;height:100%;font-family:Inter,-apple-system,'Segoe UI',Roboto,'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;font-size:13px;background:var(--bar);color:var(--bar-text)}
     #app{display:flex;flex-direction:column;height:100%}
-    header{display:flex;align-items:center;gap:14px;padding:0 14px;height:48px;flex:none;background:var(--bar);border-bottom:1px solid var(--bar-border);overflow-x:auto;white-space:nowrap}
+    header{display:flex;align-items:center;gap:10px;padding:0 14px;min-height:48px;padding-top:6px;padding-bottom:6px;box-sizing:border-box;flex:none;flex-wrap:wrap;row-gap:6px;background:var(--bar);border-bottom:1px solid var(--bar-border);position:relative}
+    @media (max-width:820px){header{gap:8px 10px}.brand{flex:1 0 100%;margin-right:0}}
     .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin-right:auto}
     .brand i{width:22px;height:22px;border-radius:6px;background:var(--primary);display:inline-block;position:relative}
     .brand i::after{content:'';position:absolute;inset:6px 5px;border:2px solid #fff;border-radius:2px}
@@ -19,10 +20,21 @@
     .seg{display:inline-flex;border:1px solid var(--bar-border);border-radius:7px;overflow:hidden}
     .seg button{border:0;background:var(--field);color:var(--bar-text);height:30px;padding:0 10px;cursor:pointer;font:inherit}
     .seg button.on{background:var(--primary);color:#fff}
-    .btn{border:1px solid var(--bar-border);border-radius:7px;background:var(--bar);color:var(--bar-text);height:30px;padding:0 12px;cursor:pointer;font:inherit;font-weight:500}
+    .btn{border:1px solid var(--bar-border);border-radius:7px;background:var(--bar);color:var(--bar-text);height:30px;padding:0 10px;cursor:pointer;font:inherit;font-weight:500}
     .btn:hover{background:var(--field)}
     .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
-    #editor{flex:1;min-height:0}
+    #editor{flex:none;min-height:0;margin:0 auto;width:100%;max-width:100%;transition:width .2s}
+    #stage{flex:1;min-height:0;display:flex;overflow:auto;background:var(--bar)}
+    #stage.framed{background:repeating-linear-gradient(45deg,var(--field),var(--field) 10px,var(--bar) 10px,var(--bar) 20px)}
+    .pop{position:relative}
+    .pop-menu{position:absolute;right:0;top:36px;z-index:20;width:300px;max-width:calc(100vw - 20px);padding:12px;border:1px solid var(--bar-border);border-radius:10px;background:var(--bar);box-shadow:0 8px 28px rgba(16,24,40,.22);display:none;flex-direction:column;gap:10px;white-space:normal}
+    .pop-menu.open{display:flex}
+    .pop-row{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--bar-muted);font-size:12px}
+    .pop-row.col{flex-direction:column;align-items:stretch}
+    .pop .seg button{flex:1}
+    .pop-row label{display:flex;align-items:center;gap:6px;color:var(--bar-text)}
+    .pop-note{margin:0;color:var(--bar-muted);font-size:11.5px;line-height:1.5}
+    
     dialog{width:min(900px,92vw);height:70vh;border:0;border-radius:10px;padding:0;background:var(--bar);color:var(--bar-text)}
     dialog textarea{width:100%;height:calc(100% - 44px);border:0;padding:12px;font:12px ui-monospace,monospace;box-sizing:border-box;background:var(--field);color:var(--bar-text)}
     dialog form{text-align:right;padding:6px 10px}
@@ -37,12 +49,23 @@
       <span class="ctl"><span id="lbl-theme">Theme</span>
         <span class="seg"><button id="theme-light" class="on">Light</button><button id="theme-dark">Dark</button></span></span>
       <label class="ctl"><span id="lbl-accent">Accent</span><input type="color" id="inp-accent" value="#2f6fed"></label>
+      <span class="pop"><button class="btn" id="btn-layout" aria-haspopup="true" aria-expanded="false">Layout</button>
+        <div class="pop-menu" id="pop-layout" role="group">
+          <div class="pop-row col"><span id="lbl-mode">Layout</span>
+            <span class="seg" id="seg-layout"><button data-layout="auto">Auto</button><button data-layout="split">Split</button><button data-layout="compact">Compact</button><button data-layout="stacked">Stacked</button></span></div>
+          <div class="pop-row"><span id="lbl-sidebars">Sidebars</span>
+            <span><label><input type="checkbox" id="chk-left" checked><span id="lbl-left">Left</span></label> <label><input type="checkbox" id="chk-right" checked><span id="lbl-right">Right</span></label></span></div>
+          <div class="pop-row"><span id="lbl-width">Container width</span>
+            <select id="sel-width"><option value="">100%</option><option value="1280">1280</option><option value="1000">1000</option><option value="700">700</option><option value="480">480</option></select></div>
+          <p class="pop-note" id="note-layout"></p>
+          <p class="pop-note"><b id="lbl-current">Current</b>: <span id="cur-layout">-</span></p>
+        </div></span>
       <button class="btn" id="btn-sample">Load sample</button>
       <button class="btn" id="btn-html">Export HTML</button>
       <button class="btn" id="btn-json">Export JSON</button>
       <button class="btn primary" id="btn-copy">Copy HTML</button>
     </header>
-    <div id="editor"></div>
+    <div id="stage"><div id="editor"></div></div>
   </div>
   <dialog id="dlg"><textarea id="out" readonly></textarea><form method="dialog"><button class="btn" id="btn-close">Close</button></form></dialog>
   <script type="module" src="/demo/main.ts"></script>
