@@ -37,4 +37,40 @@ describe('createEditor (jsdom smoke test)', () => {
     expect(el.innerHTML).not.toContain('<script>');
     expect(el.innerHTML).not.toContain('onclick');
   });
+
+  describe('3-pane layout', () => {
+    const left = () => el.querySelector('.mc-sidebar')!;
+    const right = () => el.querySelector<HTMLElement>('.mc-panel')!;
+
+    it('puts add tools on the left and body settings on the right by default', () => {
+      createEditor(el, { design: createSampleDesign() });
+      expect(left().querySelector('[data-block-type="text"]')).not.toBeNull();
+      expect(right().querySelector('[data-block-type]')).toBeNull();
+      expect(right().dataset.view).toBe('body');
+      expect(left().querySelectorAll('[data-tab]')).toHaveLength(2);
+    });
+
+    it('switches the right panel to properties on selection and back to body on deselect, keeping the left palette', () => {
+      createEditor(el, { design: createSampleDesign() });
+      const palette = left().querySelector('[data-block-type="text"]');
+      el.querySelector<HTMLElement>('.mc-block')!.click();
+      expect(right().dataset.view).toBe('props');
+      expect(left().querySelector('[data-block-type="text"]')).toBe(palette); // palette not re-rendered
+      el.querySelector<HTMLElement>('.mc-canvas-wrap')!.click();
+      expect(right().dataset.view).toBe('body');
+    });
+
+    it('keeps collapsed sections collapsed across re-renders', () => {
+      createEditor(el, { design: createSampleDesign() });
+      el.querySelector<HTMLElement>('.mc-block')!.click();
+      const det = right().querySelector<HTMLDetailsElement>('details.mc-section')!;
+      const title = det.querySelector('summary span')!.textContent;
+      det.open = false;
+      det.dispatchEvent(new Event('toggle'));
+      el.querySelectorAll<HTMLElement>('.mc-block')[1].click();
+      el.querySelector<HTMLElement>('.mc-block')!.click();
+      const again = Array.from(right().querySelectorAll<HTMLDetailsElement>('details.mc-section')).find((d) => d.querySelector('summary span')!.textContent === title)!;
+      expect(again.open).toBe(false);
+    });
+  });
 });

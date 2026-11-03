@@ -7,6 +7,7 @@ export const ja: Messages = {
   mobile: 'モバイル',
   preview: 'プレビュー',
   exitPreview: 'プレビューを終了',
+  sidebarLabel: '追加',
   tabContent: 'コンテンツ',
   tabRows: '行',
   tabBody: '全体設定',

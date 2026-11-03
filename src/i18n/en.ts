@@ -7,7 +7,8 @@ export const en = {
   mobile: 'Mobile',
   preview: 'Preview',
   exitPreview: 'Exit preview',
-  // right-hand tabs
+  // left sidebar tabs
+  sidebarLabel: 'Add to email',
   tabContent: 'Content',
   tabRows: 'Rows',
   tabBody: 'Body',

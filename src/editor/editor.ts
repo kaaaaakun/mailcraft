@@ -49,7 +49,7 @@ type Payload =
 /** `block-row`: a block dropped between rows / outside any column becomes a new 1-column row. */
 type DropTarget = { type: 'col'; colId: string; index: number } | { type: 'row'; index: number } | { type: 'block-row'; index: number };
 
-type Tab = 'content' | 'rows' | 'body' | 'props';
+type Tab = 'content' | 'rows';
 
 const BLOCK_TYPES: BlockType[] = ['text', 'heading', 'image', 'button', 'divider', 'spacer', 'html'];
 
@@ -75,8 +75,9 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
   const page = h('div', { class: 'mc-page' }, canvas);
   const canvasWrap = h('div', { class: 'mc-canvas-wrap' }, page);
   const toolbar = h('div', { class: 'mc-toolbar' });
+  const sidebar = h('aside', { class: 'mc-sidebar' });
   const panel = h('aside', { class: 'mc-panel' });
-  const root = h('div', { class: 'mc-root', tabindex: '0' }, toolbar, h('div', { class: 'mc-main' }, canvasWrap, panel));
+  const root = h('div', { class: 'mc-root', tabindex: '0' }, toolbar, h('div', { class: 'mc-main' }, sidebar, canvasWrap, panel));
   container.replaceChildren(root);
   applyTheme(root, resolveTheme(userTheme));
   root.lang = i18n.locale;
@@ -130,17 +131,23 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
         paletteItem(layoutPreview(l.ratios), l.ratios.join(' : '), { 'data-row-layout': l.ratios.join(':') }, { kind: 'new-row', ratios: l.ratios }, () => addRowByClick(l.ratios), l.ratios.length === 1 ? t('columnCount1') : t('columnsCount', { n: l.ratios.length })))));
   }
 
-  function renderPanelEl() {
-    const sel = store.selection;
-    if (tab === 'props' && sel.kind === 'body') tab = 'content';
-    const tabs: [Tab, IconName, string][] = [['content', 'sparkle', t('tabContent')], ['rows', 'rows', t('tabRows')], ['body', 'settings', t('tabBody')]];
-    if (sel.kind !== 'body') tabs.push(['props', 'props', t('tabProperties')]);
-    const ctx = { store, i18n, syncText, getEditable, collapsed, uploadImage: options.imageUploader ?? readAsDataUrl };
-    const body = tab === 'content' ? renderContentTab() : tab === 'rows' ? renderRowsTab() : renderPanel(ctx, tab === 'props' ? 'props' : 'body');
-    panel.replaceChildren(
+  /** Left sidebar: the "add" tools (content tiles / row layouts). Independent of the selection. */
+  function renderSidebarEl() {
+    sidebar.setAttribute('aria-label', t('sidebarLabel'));
+    const tabs: [Tab, IconName, string][] = [['content', 'sparkle', t('tabContent')], ['rows', 'rows', t('tabRows')]];
+    sidebar.replaceChildren(
       h('div', { class: 'mc-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) =>
-        h('button', { type: 'button', role: 'tab', class: 'mc-tab' + (k === tab ? ' on' : ''), 'aria-selected': String(k === tab), 'data-tab': k, 'on:click': () => { tab = k; renderPanelEl(); } }, icon(ic, 20), h('span', {}, label)))),
-      h('div', { class: 'mc-panel-scroll' }, body));
+        h('button', { type: 'button', role: 'tab', class: 'mc-tab' + (k === tab ? ' on' : ''), 'aria-selected': String(k === tab), 'data-tab': k, 'on:click': () => { tab = k; renderSidebarEl(); } }, icon(ic, 20), h('span', {}, label)))),
+      h('div', { class: 'mc-panel-scroll' }, tab === 'content' ? renderContentTab() : renderRowsTab()));
+  }
+
+  /** Right panel: context. Nothing selected -> email-wide (Body) settings; a row/block -> its properties. */
+  function renderPanelEl() {
+    const ctx = { store, i18n, syncText, getEditable, collapsed, uploadImage: options.imageUploader ?? readAsDataUrl };
+    const view = store.selection.kind === 'body' ? 'body' : 'props';
+    panel.dataset.view = view;
+    panel.setAttribute('aria-label', t(view === 'body' ? 'panelBodyTitle' : 'tabProperties'));
+    panel.replaceChildren(h('div', { class: 'mc-panel-scroll' }, renderPanel(ctx, view)));
   }
 
   const labels = () => ({ text: t('defaultText'), heading: t('defaultHeading'), button: t('defaultButton') });
@@ -356,16 +363,15 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
 
   function renderAll() {
     renderCanvas();
+    renderSidebarEl();
     renderPanelEl();
   }
 
-  const selKey = () => { const s = store.selection; return s.kind === 'body' ? 'body' : `${s.kind}:${s.id}`; };
-  let lastSel = selKey();
   const unsubscribe = store.subscribe((scope) => {
     if (scope === 'all') {
-      const k = selKey();
-      if (k !== lastSel) { lastSel = k; tab = store.selection.kind === 'body' ? (tab === 'props' ? 'content' : tab) : 'props'; }
-      renderAll();
+      // The palette (left) is selection-independent and is left untouched so a finished drag never replaces its own source tile.
+      renderCanvas();
+      renderPanelEl();
     }
     else if (scope === 'canvas') renderCanvas();
     options.onChange?.(structuredClone(store.design));

@@ -1,6 +1,6 @@
 # Mailcraft
 
-An open-source, embeddable **drag & drop email editor** — MIT-licensed, dependency-free and framework-agnostic. Its layout and interaction conventions (tabbed tools panel, tile palette, row layouts, selection toolbar, collapsible properties) are *inspired by* Unlayer; Mailcraft is **not affiliated with Unlayer** and shares no code, assets or branding with it.
+An open-source, embeddable **drag & drop email editor** — MIT-licensed, dependency-free and framework-agnostic. Its layout and interaction conventions (left tools palette with tiles, context-sensitive right properties panel, row layouts, selection toolbar, collapsible properties) are *inspired by* Unlayer; Mailcraft is **not affiliated with Unlayer** and shares no code, assets or branding with it.
 
 - 🧱 Rows → columns → blocks model (text, heading, image, button, divider, spacer, custom HTML)
 - 🖱️ Drag & drop from the palette, reorder blocks and rows, click-to-add
