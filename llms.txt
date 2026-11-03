@@ -1,0 +1,40 @@
+# Mailcraft
+
+> Source-available, embeddable drag & drop email editor. A design is plain JSON; `renderHtml(design)` turns it into table-based, inline-styled email HTML. Runs in browsers and Node.
+
+Full guide for generating designs: docs/for-ai.md (in the repository). Machine-readable schema: `designJsonSchema` export (JSON Schema draft 2020-12).
+
+## Design JSON in 30 seconds
+
+`{ "version": 1, "body": {...}, "rows": [ { "ratios": [1,2], "columns": [ { "blocks": [ ... ] }, { "blocks": [ ... ] } ], "padding": {"top":0,"right":0,"bottom":0,"left":0}, "backgroundColor": "", "stackOnMobile": true } ] }`
+
+- Only `rows` is required. `columns.length === ratios.length` (1-12 columns).
+- Block `type`: text (html), heading (text, level 1-3), image (src, alt, href, widthPercent 1-100), button (text, href, backgroundColor, color, borderRadius, fontSize, innerPaddingY/X), divider (color, thickness 1-50), spacer (height 0-600), html (custom markup).
+- `align` is left | center | right. Colors: #hex, rgb(), rgba(), hsl(), hsla() or a basic color name. Padding values are integers 0-200.
+- URLs: https, http, mailto, tel, #anchor, /path or {{merge_tag}}. `javascript:` is dropped.
+- `text.html` and `html` blocks are sanitized with an allowlist on render; unknown block types are skipped.
+
+```json
+{
+  "version": 1,
+  "body": { "backgroundColor": "#f3f4f6", "contentBackgroundColor": "#ffffff", "contentWidth": 600, "fontFamily": "Arial, Helvetica, sans-serif", "preheader": "Preview text" },
+  "rows": [
+    { "ratios": [1], "columns": [ { "blocks": [
+      { "type": "heading", "text": "Hello", "level": 1, "color": "#111111", "fontSize": 28, "align": "center" },
+      { "type": "text", "html": "<p style=\"margin:0\">Thanks for subscribing.</p>", "color": "#333333", "fontSize": 16, "lineHeight": 1.6, "align": "center" },
+      { "type": "button", "text": "Open", "href": "https://example.com", "backgroundColor": "#2f6fed", "color": "#ffffff", "align": "center" }
+    ] } ] }
+  ]
+}
+```
+
+## API
+
+- `validateDesign(input)` returns `{ ok, errors: [{path, message}], design }` and never throws; `design` is always the normalized design.
+- `normalizeDesign(input)` returns a valid Design from partial, legacy or hostile input and never throws.
+- `renderHtml(design, { title?, trustedHtml? })` returns the email HTML. Input is normalized first; `trustedHtml: true` skips sanitizing the custom html block only.
+- `createEditor(container, { design })`, `editor.loadDesign(design)`, `editor.getDesign()`, `editor.exportHtml()` for the browser editor.
+
+## Email tips
+
+Keep width 600, web-safe fonts, inline styles, hosted https images with alt text, one primary button, an unsubscribe link in the footer. Avoid scripts, forms, video, SVG, CSS variables, flex/grid.

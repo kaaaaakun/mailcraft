@@ -34,7 +34,9 @@
     "**/*.css"
   ],
   "files": [
-    "dist"
+    "dist",
+    "llms.txt",
+    "docs/for-ai.md"
   ],
   "scripts": {
     "dev": "vite",
