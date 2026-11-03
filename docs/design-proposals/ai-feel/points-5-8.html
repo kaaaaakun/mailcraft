@@ -1,0 +1,188 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mailcraft AI-feel points 5-8</title>
+<!-- Static design mockup for discussion (not part of the library, no JS). -->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#f6f7fa;color:#1f2430;font:14px/1.5 Inter,'Noto Sans CJK JP','Noto Sans JP',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{padding:34px 40px 40px}
+h1.x-h{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+.x-sub{color:#6b7383;margin:0 0 22px}
+.x-card{background:#fff;border:1px solid #e1e4e9;border-radius:12px;padding:18px}
+.x-tag{display:inline-block;font:600 12px/1 ui-monospace,Menlo,monospace;background:#eef0f6;color:#3b4a6b;padding:5px 8px;border-radius:5px;vertical-align:middle}
+.x-no{display:inline-block;font:700 11px/1 Inter,'Noto Sans CJK JP',sans-serif;background:#fff3d6;color:#8a5a00;border:1px solid #f0d58c;padding:4px 8px;border-radius:999px;vertical-align:middle}
+.x-yes{display:inline-block;font:700 11px/1 Inter,'Noto Sans CJK JP',sans-serif;background:#e1f4ec;color:#0b6b4f;border:1px solid #a9dcc8;padding:4px 8px;border-radius:999px;vertical-align:middle}
+.x-rec{display:inline-block;font:700 11px/1 Inter,'Noto Sans CJK JP',sans-serif;background:#2f6fed;color:#fff;padding:4px 8px;border-radius:999px;vertical-align:middle}
+.x-t{font-size:16px;font-weight:700;margin:0}
+.x-d{color:#6b7383;font-size:13px;margin:2px 0 0}
+.x-mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.x-frame{border:1px solid #cfd4dc;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.06),0 6px 20px rgba(16,24,40,.07)}
+.x-row{display:flex;gap:20px}
+.x-grow{flex:1;min-width:0}
+.scope{--bg:#ebedf0;--panel:#ffffff;--panel2:#f5f6f8;--border:#e1e4e9;--text:#1f2430;--muted:#6b7383;--accent:#2f6fed;--accent-ink:#fff;--accent-soft:#eaf1ff;--accent-line:rgba(47,111,237,.45);--input:#fff;--font:Inter,'Noto Sans CJK JP','Noto Sans JP',system-ui,sans-serif;color-scheme:light}
+.scope.dark{--bg:#14171d;--panel:#1e222b;--panel2:#262b35;--border:#2d323d;--text:#e6e9ef;--muted:#9aa3b2;--accent:#5b8cff;--accent-ink:#0b1020;--accent-soft:#242f4d;--accent-line:rgba(91,140,255,.5);--input:#171a21;color-scheme:dark}
+*{box-sizing:border-box}
+.app{height:100%;display:flex;flex-direction:column}
+.ic{display:block;flex:none}
+.top{height:54px;flex:none;display:flex;align-items:center;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+.top>div{flex:1;display:flex;align-items:center;gap:6px}
+.top>div:last-child{justify-content:flex-end}
+.wm{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.wm i{width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink)}
+.tb{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;min-width:34px;padding:0 9px;border-radius:8px;color:var(--text);font-weight:500;border:1px solid transparent}
+.tb:hover{background:var(--panel2)}
+.tb.off{opacity:.35}
+.tb.line{border-color:var(--border);padding:0 14px}
+.tb.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);padding:0 16px}
+.segt{display:flex;gap:2px;padding:3px;background:var(--panel2);border:1px solid var(--border);border-radius:10px}
+.segt .tb{height:28px;color:var(--muted)}
+.segt .tb.on{background:var(--panel);color:var(--accent);box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.main{flex:1;display:flex;min-height:0}
+.left{width:296px;flex:none;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 4px}
+.tabs div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0 9px;color:var(--muted);font-size:11px;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs div.on{color:var(--accent);border-color:var(--accent)}
+.lp{padding:14px 14px;overflow:hidden}
+.st{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;margin:2px 0 8px}
+.st:not(:first-child){margin-top:18px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:84px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:12px;cursor:grab}
+.t .ic{color:var(--muted)}
+.t:hover{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 2px 8px rgba(47,111,237,.16)}
+.t:hover .ic{color:var(--accent)}
+.t.hot{border-color:var(--accent);background:var(--accent-soft)}
+.t.hot .ic{color:var(--accent)}
+.cv{flex:1;min-width:0;display:flex;justify-content:center;align-items:flex-start;padding:46px 28px 0;overflow:hidden}
+.right{width:320px;flex:none;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.rh{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border)}
+.rh b{font-size:14px}
+.rh .sp{flex:1}
+.acc{border-bottom:1px solid var(--border)}
+.ah{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;font-weight:600;font-size:13px}
+.ah .ic{color:var(--muted)}
+.ab{padding:0 16px 14px}
+.fl{margin-bottom:12px}.fl:last-child{margin-bottom:0}
+.fl label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.in{height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--border);border-radius:7px;background:var(--input)}
+.in.foc{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.in .u{margin-left:auto;color:var(--muted);font-size:11px}
+.sw{width:18px;height:18px;border-radius:4px;border:1px solid rgba(128,128,128,.35)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.sg span{flex:1;height:32px;display:grid;place-items:center;color:var(--muted);background:var(--input)}
+.sg span+span{border-left:1px solid var(--border)}
+.sg span.on{background:var(--accent-soft);color:var(--accent)}
+.em-chrome{border-radius:5px 5px 0 0}
+
+.em{width:600px;background:#fffdf9;color:#2b221c;font-family:'Noto Sans CJK JP','Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;box-shadow:0 1px 2px rgba(20,14,8,.12),0 8px 28px rgba(20,14,8,.12);flex:none}
+.em-b{position:relative;outline:1px solid transparent;outline-offset:-1px}
+.em-b:hover{outline-color:var(--accent-line)}
+.em-b.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.em-logo{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px 24px;border-bottom:1px solid #eadfd2;background:#f6eee3}
+.em-logo b{font-size:15px;letter-spacing:.18em;font-weight:700}
+.em-logo small{font-size:10px;letter-spacing:.16em;color:#8a7561}
+.em-hero{display:block;width:100%;height:168px}
+.em h1{margin:0;padding:24px 32px 6px;font-size:22px;line-height:1.5;font-weight:700;text-align:left}
+.em p{margin:0;padding:6px 32px;font-size:14px;line-height:1.85}
+.em-info{display:flex;margin:10px 32px;border:1px solid #eadfd2;border-radius:6px;background:#faf3e8}
+.em-info div{flex:1;padding:12px 16px}
+.em-info div+div{border-left:1px solid #eadfd2}
+.em-info small{display:block;font-size:11px;color:#8a7561}
+.em-info strong{font-size:18px}
+.em-info strong.hi{color:#b0451d}
+.em-btn{text-align:left;padding:16px 32px 10px}
+.em-btn a{display:inline-block;background:#3b2a20;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:6px;text-decoration:none}
+.em p.em-note{font-size:12px;color:#6f5f50;padding-bottom:4px}
+.em-foot{margin-top:18px;padding:18px 32px 20px;background:#f6eee3;border-top:1px solid #eadfd2;font-size:11px;line-height:1.7;color:#8a7561;text-align:center}
+.em-chrome{position:absolute;right:-2px;top:-27px;z-index:3;display:flex;align-items:center;gap:1px;background:var(--accent);color:var(--accent-ink);border-radius:6px 6px 0 0;padding:0 3px;height:27px;font:600 11px/1 var(--font)}
+.em-chrome i{display:inline-flex;width:23px;height:23px;align-items:center;justify-content:center;border-radius:4px;font-style:normal}
+.em-chrome .tg{padding:0 8px 0 5px;margin-right:2px;border-right:1px solid rgba(255,255,255,.3)}
+
+.scope{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.45 var(--font);-webkit-font-smoothing:antialiased;position:relative}
+.scope .app{height:100%}
+.rail{width:56px;flex:none;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0}
+.rail .rb{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;color:var(--muted)}
+.rail .rb.on{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.rail hr{width:24px;border:0;border-top:1px solid var(--border);margin:4px 0}
+.sheet{position:absolute;left:0;right:0;bottom:52px;background:var(--panel);border-radius:16px 16px 0 0;border-top:1px solid var(--border);box-shadow:0 -8px 24px rgba(16,24,40,.16);padding:8px 16px 14px}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 10px}
+.btabs{position:absolute;left:0;right:0;bottom:0;height:52px;background:var(--panel);border-top:1px solid var(--border);display:flex}
+.btabs div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--muted);font-weight:500}
+.btabs div.on{color:var(--accent)}
+.hostpad{display:grid;place-items:center}
+.scope .tb{white-space:nowrap}
+
+.pn2{background:#fff;border:1px solid #e1e4e9;border-radius:12px;margin-bottom:18px;overflow:hidden}
+.pn2 .hd2{display:flex;align-items:center;gap:10px;padding:12px 18px;border-bottom:1px solid #eceef2;background:#fafbfc}
+.pn2 .num{width:26px;height:26px;border-radius:50%;background:#1f2430;color:#fff;font:700 13px/26px Inter,sans-serif;text-align:center}
+.pn2 .hd2 b{font-size:16px}
+.pn2 .hd2 .ec{margin-left:auto;display:flex;gap:6px}
+.ec span{font-size:11.5px;font-weight:700;border-radius:99px;padding:4px 9px;background:#eef0f6;color:#3b4a6b}
+.pn2 .cmp{display:grid;grid-template-columns:1fr 1fr}
+.side{padding:14px 18px 16px;position:relative;min-width:0}
+.side+.side{border-left:1px dashed #d3d8e0;background:#fbfdfb}
+.side .lb{display:inline-flex;gap:6px;align-items:center;font-size:12px;font-weight:800;margin-bottom:10px;padding:3px 10px;border-radius:99px}
+.lb.b{background:#fde8e6;color:#a8281b}.lb.a{background:#e1f4ec;color:#0b6b4f}
+.side .cap{font-size:12.5px;color:#5c6577;line-height:1.6;margin-top:10px}
+.mb{height:var(--h,214px);border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--panel);position:relative;color:var(--text);font:13px/1.45 var(--font)}
+.mb.scope{height:var(--h,214px)}
+/* 1 */
+.u-g3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:12px}
+.u-t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;height:74px;border:1px solid var(--border);border-radius:8px;font-size:12px;background:var(--panel)}
+.u-t .ic{color:var(--muted)}
+.u-t.on{border-color:var(--accent);background:var(--accent-soft)}.u-t.on .ic{color:var(--accent)}
+.u-t.hv{background:var(--panel2)}.u-t.hv .ic{color:var(--text)}
+.u-sec{font-size:11px;font-weight:700;color:var(--muted);letter-spacing:.05em;padding:0 12px;margin:8px 0 5px;display:flex;gap:6px;align-items:center}
+.u-sec i{flex:1;border-top:1px solid var(--border)}
+.u-g4{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;padding:0 12px}
+.u-t.sm{height:48px;gap:3px;font-size:10.5px;border-radius:7px}
+.u-t.big{height:48px;flex-direction:row;justify-content:flex-start;padding:0 12px;gap:10px;font-size:12.5px}
+/* 2 */
+.u-top{height:38px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:8px;padding:0 12px}
+.u-top .pri{margin-left:auto;background:var(--accent);color:var(--accent-ink);border-radius:7px;padding:5px 12px;font-weight:700;font-size:12px}
+.u-tabs{display:flex;gap:14px;padding:0 12px;border-bottom:1px solid var(--border);font-size:12px;color:var(--muted)}
+.u-tabs span{padding:8px 0}.u-tabs .on{color:var(--accent);border-bottom:2px solid var(--accent);font-weight:600}
+.u-in{margin:10px 12px 0;height:30px;border:1px solid var(--accent);box-shadow:0 0 0 3px var(--accent-soft);border-radius:7px;display:flex;align-items:center;padding:0 10px;font-size:12px}
+.u-sw{display:flex;gap:8px;margin:10px 12px 0;align-items:center;font-size:11.5px;color:var(--muted)}
+.u-sw i{width:22px;height:22px;border-radius:6px;display:inline-block;border:1px solid rgba(0,0,0,.12)}
+/* 4 */
+.u-f{padding:0 12px;margin-top:9px}
+.u-f label{display:block;font-size:12px;font-weight:600;margin-bottom:3px}
+.u-f p{font-size:11.5px;color:var(--muted);line-height:1.5;margin:0 0 4px}
+.u-i{height:28px;border:1px solid var(--border);border-radius:6px;background:var(--input);display:flex;align-items:center;padding:0 9px;font-size:12px;gap:6px}
+.u-tip{position:absolute;background:#1f2430;color:#fff;font-size:11px;border-radius:5px;padding:5px 8px;white-space:nowrap}
+.u-tip:after{content:'';position:absolute;left:12px;bottom:-4px;border:4px solid transparent;border-top-color:#1f2430;border-bottom:0}
+.u-empty{margin:8px 12px 0;border:1px dashed var(--border);border-radius:8px;padding:8px 10px;font-size:11.5px;color:var(--muted);display:flex;gap:8px;align-items:center}
+/* 6 */
+.ruler{position:absolute;right:6px;width:0;border-left:1.5px solid #d94a32}
+.ruler b{position:absolute;right:6px;font:700 10px ui-monospace,monospace;color:#d94a32;white-space:nowrap}
+/* 7 */
+.dh{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding:8px 12px;border-bottom:1px solid var(--border);font-size:11.5px}
+.dh .chip{border:1px solid var(--border);border-radius:6px;padding:4px 9px;background:var(--panel)}
+.dh .seg,.pop .seg{display:inline-flex;border:1px solid var(--border);border-radius:6px;overflow:hidden}.dh .seg span,.pop .seg span{padding:4px 8px}.dh .seg .on,.pop .seg .on{background:var(--accent);color:var(--accent-ink)}
+.dh .pri{background:var(--accent);color:var(--accent-ink);border-radius:6px;padding:5px 10px;font-weight:700}
+.dh .mut{color:var(--muted)}
+.pop{position:absolute;right:12px;top:40px;width:230px;background:var(--panel);border:1px solid var(--border);border-radius:10px;box-shadow:0 10px 28px rgba(16,24,40,.2);padding:10px 12px;font-size:12px;z-index:2}
+.pop .r{display:flex;align-items:center;justify-content:space-between;padding:6px 0;border-bottom:1px solid var(--border)}.pop .r:last-child{border:0}
+/* 8 */
+.cv8{background:var(--bg);height:100%;position:relative;padding:12px 40px}
+.blk{background:#fff;border:1px solid #e3e5ea;border-radius:4px;padding:8px 12px;font-size:12px;color:#2b221c;margin-bottom:6px;position:relative}
+.drop{height:3px;background:var(--accent);border-radius:2px;margin:-4px 0 3px;position:relative}
+.drop:before{content:'';position:absolute;left:-4px;top:-3px;width:9px;height:9px;border-radius:50%;background:var(--accent)}
+.ghost{position:absolute;background:var(--panel);border:1px solid var(--accent);border-radius:7px;padding:5px 10px;font-size:11.5px;display:flex;gap:6px;align-items:center;box-shadow:0 6px 16px rgba(0,0,0,.18);z-index:3}
+.sbar{white-space:nowrap;position:absolute;left:0;right:0;bottom:0;height:24px;border-top:1px solid var(--border);background:var(--panel);display:flex;align-items:center;gap:6px;padding:0 12px;font-size:11px;color:var(--muted)}
+.kbd{font:600 10px/1 ui-monospace,Menlo,monospace;border:1px solid var(--border);border-bottom-width:2px;border-radius:4px;padding:2px 5px;color:var(--muted);background:var(--panel2)}
+</style></head>
+<body style="width:1440px"><div class="wrap"><h1 class="x-h">「AI感」を減らす 8 項目: Before / After(⑤〜⑧)</h1><p class="x-sub">右上のタグは Issue の優先度表(効果 / コスト)。 <span class="x-no">mockup / not implemented</span></p><section class="pn2"><div class="hd2"><span class="num">⑤</span><b>定番すぎるサンプルの文面・構成</b><span class="ec"><span>効果 大</span><span>コスト 中</span></span></div><div class="cmp"><div class="side"><span class="lb b">Before 現状</span><div class="mb scope" style="--h:300px;background:#e9ebee;display:flex;justify-content:center;padding-top:12px"><div style="width:288px;height:307px;overflow:hidden;position:relative"><div style="width:600px;height:640px;transform:scale(0.48);transform-origin:0 0;position:absolute;left:0;top:0"><div style="width:600px;background:#fff;font-family:'Noto Sans CJK JP',sans-serif;color:#1c2540"><div style="text-align:center;font-weight:800;padding:20px;letter-spacing:.04em">MAPLE &amp; CO.</div><div style="background:#243460;color:#fff;text-align:center;padding:36px 40px"><div style="font-size:30px;font-weight:800">秋の新作コレクションが登場</div><p style="margin:12px 0 18px;font-size:14px;opacity:.85">ぬくもりのある素材感と深みのある色合い。長く使える毎日のアイテムをご紹介します。</p><span style="background:#fff;color:#243460;padding:12px 28px;border-radius:99px;font-weight:700;display:inline-block">コレクションを見る</span></div><div style="display:flex;gap:16px;padding:22px 32px;font-size:13px"><div><b>地元の工房で製作</b><p style="margin:4px 0 0;color:#6b7383">すべて近隣の提携工房で。</p></div><div><b>長く使える品質</b><p style="margin:4px 0 0;color:#6b7383">天然素材と誠実な作り。</p></div><div><b>返品無料</b><p style="margin:4px 0 0;color:#6b7383">30 日以内ならご返品可。</p></div></div><div style="background:#eef3ff;padding:20px 32px;display:flex;align-items:center;gap:18px"><b style="font-size:34px;color:#2f6fed">20% OFF</b><span style="font-size:13px">コード AUTUMN20 を入力してください。</span></div></div></div></div></div><div class="cap">中央ヒーロー + 3 列 + 20% OFF の CTA + MAPLE &amp; CO.。どこかで見た構成そのもの。</div></div><div class="side"><span class="lb a">After 案</span><div class="mb scope" style="--h:300px;background:#e9ebee;display:flex;justify-content:center;padding-top:12px"><div style="width:288px;height:307px;overflow:hidden;position:relative"><div style="width:600px;height:640px;transform:scale(0.48);transform-origin:0 0;position:absolute;left:0;top:0"><div class="em">
+  <div class="em-b"><div class="em-logo"><b>灯 珈琲焙煎所</b><small>AKARI COFFEE ROASTERS</small></div></div>
+  <div class="em-b"><svg class="em-hero" viewBox="0 0 600 168" preserveAspectRatio="xMidYMid slice" aria-hidden="true"><defs><linearGradient id="hg" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#8a5a3a"/><stop offset="1" stop-color="#4a2f20"/></linearGradient></defs><rect width="600" height="168" fill="url(#hg)"/><g opacity=".14" fill="#fff"><ellipse cx="60" cy="40" rx="26" ry="16" transform="rotate(-24 60 40)"/><ellipse cx="520" cy="130" rx="30" ry="18" transform="rotate(20 520 130)"/><ellipse cx="470" cy="30" rx="18" ry="11" transform="rotate(40 470 30)"/><ellipse cx="130" cy="140" rx="22" ry="13" transform="rotate(10 130 140)"/></g><g transform="translate(300 98)"><path d="M-46 -8h92l-8 44a22 22 0 01-22 18h-32a22 22 0 01-22-18z" fill="#f6eee3"/><path d="M46 2h12a14 14 0 010 28h-16" fill="none" stroke="#f6eee3" stroke-width="7" stroke-linecap="round"/><path d="M-18 -18c-8-12 8-16 0-30M4 -18c-8-12 8-16 0-30M26 -18c-8-12 8-16 0-30" fill="none" stroke="#f6eee3" stroke-width="3.5" stroke-linecap="round" opacity=".75"/></g></svg></div>
+  <div class="em-b"><h1>発送が 2〜3 日ほど遅れております</h1></div>
+  <div class="em-b"><p>いつも灯珈琲をご利用いただきありがとうございます。焙煎機の点検のため、10月28日以降のご注文は発送までお時間をいただいております。楽しみにしてくださっている皆さまには、心よりお詫び申し上げます。</p></div>
+  <div class="em-b"><div class="em-info"><div><small>通常のお届け</small><strong>2〜3 日</strong></div><div><small>現在のお届け目安</small><strong class="hi">5〜6 日</strong></div></div></div>
+  <div class="em-b sel">
+    
+    <div class="em-btn"><a>注文状況を確認する</a></div></div>
+  <div class="em-b"><p class="em-note">発送準備が整い次第、追跡番号をメールでお知らせします。ご不明な点は、ご注文確認メールへの返信でお知らせください。</p></div>
+  <div class="em-b"><div class="em-foot">灯珈琲焙煎所(架空のサンプル)<br>〒000-0000 サンプル県サンプル市 1-2-3<br>配信停止はこちら</div></div>
+</div></div></div></div><div class="cap">実在しそうな小さな事業者のお知らせ。情報の整理(2 カラム)・ボタン 1 つで見せる(詳細は「サンプルメールの中身」Issue)。</div></div></div></section><section class="pn2"><div class="hd2"><span class="num">⑥</span><b>LP っぽい余白と大きな文字</b><span class="ec"><span>効果 大</span><span>コスト 小</span></span></div><div class="cmp"><div class="side"><span class="lb b">Before 現状</span><div class="mb scope" style="--h:214px;"><div style="padding:14px 12px 4px;font-size:20px;font-weight:800">サイズと形</div><div style="padding:0 12px;height:52px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:15px"><span style="color:var(--muted);width:60px">角丸</span><div class="u-i" style="flex:1;height:38px;font-size:15px">6</div></div></div><div style="padding:0 12px;height:52px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:15px"><span style="color:var(--muted);width:60px">文字</span><div class="u-i" style="flex:1;height:38px;font-size:15px">6</div></div></div><div style="padding:0 12px;height:52px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:15px"><span style="color:var(--muted);width:60px">余白</span><div class="u-i" style="flex:1;height:38px;font-size:15px">6</div></div></div><div style="padding:0 12px;height:52px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:15px"><span style="color:var(--muted);width:60px">配置</span><div class="u-i" style="flex:1;height:38px;font-size:15px">6</div></div></div><div class="ruler" style="top:48px;height:52px"><b style="top:18px">52px</b></div></div><div class="cap">見出し 20px・行高 52px・文字 15px。ゆったりだが、スクロールが増え、ツールとして間延びする。 → 4 項目</div></div><div class="side"><span class="lb a">After 案</span><div class="mb scope" style="--h:214px;"><div style="padding:10px 12px 4px;font-size:12px;font-weight:700">サイズと形</div><div style="padding:0 12px;height:26px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="color:var(--muted);width:60px">角丸</span><div class="u-i" style="flex:1;height:20px;font-size:12.5px">6</div></div></div><div style="padding:0 12px;height:26px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="color:var(--muted);width:60px">文字</span><div class="u-i" style="flex:1;height:20px;font-size:12.5px">6</div></div></div><div style="padding:0 12px;height:26px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="color:var(--muted);width:60px">余白</span><div class="u-i" style="flex:1;height:20px;font-size:12.5px">6</div></div></div><div style="padding:0 12px;height:26px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="color:var(--muted);width:60px">配置</span><div class="u-i" style="flex:1;height:20px;font-size:12.5px">6</div></div></div><div style="padding:0 12px;height:26px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="color:var(--muted);width:60px">幅</span><div class="u-i" style="flex:1;height:20px;font-size:12.5px">6</div></div></div><div style="padding:0 12px;height:26px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="color:var(--muted);width:60px">高さ</span><div class="u-i" style="flex:1;height:20px;font-size:12.5px">6</div></div></div><div style="padding:0 12px;height:26px;display:flex;flex-direction:column;justify-content:center;border-bottom:1px solid var(--border)"><div style="display:flex;align-items:center;gap:8px;font-size:12.5px"><span style="color:var(--muted);width:60px">線</span><div class="u-i" style="flex:1;height:20px;font-size:12.5px">6</div></div></div><div class="ruler" style="top:34px;height:26px"><b style="top:6px">26px</b></div></div><div class="cap">見出し 12–13px・行高 24–28px・ラベルと入力の距離を詰める。同じ高さに 7 項目。「コンパクト / 標準」の密度オプションも検討。</div></div></div></section><section class="pn2"><div class="hd2"><span class="num">⑦</span><b>デモ専用コントロールがヘッダーを占有</b><span class="ec"><span>効果 大</span><span>コスト 小</span></span></div><div class="cmp"><div class="side"><span class="lb b">Before 現状</span><div class="mb scope" style="--h:214px;"><div class="dh"><b>Mailcraft</b><span class="mut">言語</span><span class="chip">日本語 ▾</span><span class="mut">テーマ</span><span class="seg"><span class="on">ライト</span><span>ダーク</span></span><span class="mut">アクセント</span><span class="chip" style="padding:4px 14px;background:var(--accent)"></span><span class="chip">レイアウト</span><span class="chip">サンプルを読込</span><span class="chip">HTML出力</span><span class="chip">JSON出力</span><span class="pri">HTMLをコピー</span></div><div style="padding:14px;color:var(--muted);font-size:12px">(ここから下がエディタ。ヘッダーが 2〜3 段に折り返す)</div></div><div class="cap">ライブラリの機能と無関係な切替が先頭に並び、デモが「設定画面」に見える。</div></div><div class="side"><span class="lb a">After 案</span><div class="mb scope" style="--h:214px;"><div class="dh"><b>Mailcraft</b><span style="flex:1"></span><span class="chip" style="display:inline-flex;gap:5px;align-items:center;background:var(--accent-soft);border-color:var(--accent-line)"><svg class="ic" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style=""><circle cx="12" cy="12" r="3"/><path d="M12 3.5v2.2M12 18.3v2.2M3.5 12h2.2M18.3 12h2.2M6 6l1.6 1.6M16.4 16.4L18 18M18 6l-1.6 1.6M7.6 16.4L6 18"/></svg>Settings ▾</span><span class="pri">書き出し ▾</span></div><div class="pop"><div class="r"><span>言語</span><span class="chip">日本語 ▾</span></div><div class="r"><span>テーマ</span><span class="seg"><span class="on">ライト</span><span>ダーク</span></span></div><div class="r"><span>アクセント</span><span style="display:flex;gap:5px"><i style="width:16px;height:16px;border-radius:4px;background:#3f4a5c;display:inline-block"></i><i style="width:16px;height:16px;border-radius:4px;background:#0c7a5a;display:inline-block"></i><i style="width:16px;height:16px;border-radius:4px;background:#c93d26;display:inline-block"></i><i style="width:16px;height:16px;border-radius:4px;background:#111418;display:inline-block"></i></span></div><div class="r"><span>サンプルを読込</span><span class="mut">▸</span></div></div></div><div class="cap">デモ用の設定は折りたたんだ「Settings」へ。書き出しも 1 つのメニューにまとめ、ヘッダーは 1 段。</div></div></div></section><section class="pn2"><div class="hd2"><span class="num">⑧</span><b>マイクロディテールの不足</b><span class="ec"><span>効果 中</span><span>コスト 中</span></span></div><div class="cmp"><div class="side"><span class="lb b">Before 現状</span><div class="mb scope" style="--h:214px;"><div class="cv8" style="padding-bottom:30px"><div class="blk" style="font-weight:700;font-size:14px">発送が 2〜3 日ほど遅れております</div><div class="blk">いつも灯珈琲をご利用いただきありがとうございます。</div><div class="blk" style="">通常のお届け 2〜3 日 / 現在 5〜6 日</div><div class="ghost" style="left:210px;top:92px"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style=""><rect x="3" y="8" width="18" height="8.5" rx="4.2"/><path d="M8.5 12.25h7"/></svg>ボタン</div></div></div><div class="cap">ドラッグ中、どこに入るか分からない。ショートカット・ステータスバー・フォーカスの表現がない。</div></div><div class="side"><span class="lb a">After 案</span><div class="mb scope" style="--h:214px;"><div class="cv8" style="padding-bottom:30px"><div class="blk" style="font-weight:700;font-size:14px">発送が 2〜3 日ほど遅れております</div><div class="blk">いつも灯珈琲をご利用いただきありがとうございます。</div><div class="drop"></div><div class="blk" style="">通常のお届け 2〜3 日 / 現在 5〜6 日</div><div class="ghost" style="left:210px;top:92px"><svg class="ic" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style=""><rect x="3" y="8" width="18" height="8.5" rx="4.2"/><path d="M8.5 12.25h7"/></svg>ボタン<span class="kbd">B</span></div></div><div class="sbar"><span style="color:var(--text)">行 2</span> › <span>列 1</span> › <span style="color:var(--accent);font-weight:700">ボタン</span><span style="margin-left:auto"><svg class="ic" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" style=""><path d="M9 14L4.5 9.5 9 5M4.5 9.5H14a5.5 5.5 0 010 11h-3"/></svg> <span class="kbd">⌘Z</span></span></div></div><div class="cap">ドロップ位置のインジケーター、ショートカット表示(<span class="kbd">B</span>)、パンくず付きステータスバー、フォーカスリング(<span class="kbd">Tab</span>で確認)、空状態のイラスト。</div></div></div></section></div></body></html>

@@ -1,0 +1,178 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mailcraft layout: container vs viewport</title>
+<!-- Static design mockup for discussion (not part of the library, no JS). -->
+<style>
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:#f6f7fa;color:#1f2430;font:14px/1.5 Inter,'Noto Sans CJK JP','Noto Sans JP',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{padding:34px 40px 40px}
+h1.x-h{font-size:26px;margin:0 0 4px;letter-spacing:-.01em}
+.x-sub{color:#6b7383;margin:0 0 22px}
+.x-card{background:#fff;border:1px solid #e1e4e9;border-radius:12px;padding:18px}
+.x-tag{display:inline-block;font:600 12px/1 ui-monospace,Menlo,monospace;background:#eef0f6;color:#3b4a6b;padding:5px 8px;border-radius:5px;vertical-align:middle}
+.x-no{display:inline-block;font:700 11px/1 Inter,'Noto Sans CJK JP',sans-serif;background:#fff3d6;color:#8a5a00;border:1px solid #f0d58c;padding:4px 8px;border-radius:999px;vertical-align:middle}
+.x-yes{display:inline-block;font:700 11px/1 Inter,'Noto Sans CJK JP',sans-serif;background:#e1f4ec;color:#0b6b4f;border:1px solid #a9dcc8;padding:4px 8px;border-radius:999px;vertical-align:middle}
+.x-rec{display:inline-block;font:700 11px/1 Inter,'Noto Sans CJK JP',sans-serif;background:#2f6fed;color:#fff;padding:4px 8px;border-radius:999px;vertical-align:middle}
+.x-t{font-size:16px;font-weight:700;margin:0}
+.x-d{color:#6b7383;font-size:13px;margin:2px 0 0}
+.x-mono{font-family:ui-monospace,Menlo,monospace;font-size:12px}
+.x-frame{border:1px solid #cfd4dc;border-radius:10px;overflow:hidden;background:#fff;box-shadow:0 1px 2px rgba(16,24,40,.06),0 6px 20px rgba(16,24,40,.07)}
+.x-row{display:flex;gap:20px}
+.x-grow{flex:1;min-width:0}
+.scope{--bg:#ebedf0;--panel:#ffffff;--panel2:#f5f6f8;--border:#e1e4e9;--text:#1f2430;--muted:#6b7383;--accent:#2f6fed;--accent-ink:#fff;--accent-soft:#eaf1ff;--accent-line:rgba(47,111,237,.45);--input:#fff;--font:Inter,'Noto Sans CJK JP','Noto Sans JP',system-ui,sans-serif;color-scheme:light}
+.scope.dark{--bg:#14171d;--panel:#1e222b;--panel2:#262b35;--border:#2d323d;--text:#e6e9ef;--muted:#9aa3b2;--accent:#5b8cff;--accent-ink:#0b1020;--accent-soft:#242f4d;--accent-line:rgba(91,140,255,.5);--input:#171a21;color-scheme:dark}
+*{box-sizing:border-box}
+.app{height:100%;display:flex;flex-direction:column}
+.ic{display:block;flex:none}
+.top{height:54px;flex:none;display:flex;align-items:center;padding:0 16px;background:var(--panel);border-bottom:1px solid var(--border)}
+.top>div{flex:1;display:flex;align-items:center;gap:6px}
+.top>div:last-child{justify-content:flex-end}
+.wm{font-weight:700;font-size:15px;display:flex;align-items:center;gap:8px}
+.wm i{width:24px;height:24px;border-radius:7px;background:var(--accent);display:grid;place-items:center;color:var(--accent-ink)}
+.tb{display:inline-flex;align-items:center;justify-content:center;gap:6px;height:32px;min-width:34px;padding:0 9px;border-radius:8px;color:var(--text);font-weight:500;border:1px solid transparent}
+.tb:hover{background:var(--panel2)}
+.tb.off{opacity:.35}
+.tb.line{border-color:var(--border);padding:0 14px}
+.tb.pri{background:var(--accent);color:var(--accent-ink);border-color:var(--accent);padding:0 16px}
+.segt{display:flex;gap:2px;padding:3px;background:var(--panel2);border:1px solid var(--border);border-radius:10px}
+.segt .tb{height:28px;color:var(--muted)}
+.segt .tb.on{background:var(--panel);color:var(--accent);box-shadow:0 1px 3px rgba(16,24,40,.14)}
+.main{flex:1;display:flex;min-height:0}
+.left{width:296px;flex:none;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column}
+.tabs{display:flex;border-bottom:1px solid var(--border);padding:0 4px}
+.tabs div{flex:1;display:flex;flex-direction:column;align-items:center;gap:4px;padding:10px 0 9px;color:var(--muted);font-size:11px;font-weight:500;border-bottom:2px solid transparent;margin-bottom:-1px}
+.tabs div.on{color:var(--accent);border-color:var(--accent)}
+.lp{padding:14px 14px;overflow:hidden}
+.st{font-size:11px;font-weight:600;color:var(--muted);letter-spacing:.04em;margin:2px 0 8px}
+.st:not(:first-child){margin-top:18px}
+.grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.t{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;min-height:84px;border:1px solid var(--border);border-radius:8px;background:var(--panel);color:var(--text);font-size:12px;cursor:grab}
+.t .ic{color:var(--muted)}
+.t:hover{border-color:var(--accent);background:var(--accent-soft);box-shadow:0 2px 8px rgba(47,111,237,.16)}
+.t:hover .ic{color:var(--accent)}
+.t.hot{border-color:var(--accent);background:var(--accent-soft)}
+.t.hot .ic{color:var(--accent)}
+.cv{flex:1;min-width:0;display:flex;justify-content:center;align-items:flex-start;padding:46px 28px 0;overflow:hidden}
+.right{width:320px;flex:none;background:var(--panel);border-left:1px solid var(--border);display:flex;flex-direction:column}
+.rh{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border)}
+.rh b{font-size:14px}
+.rh .sp{flex:1}
+.acc{border-bottom:1px solid var(--border)}
+.ah{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;font-weight:600;font-size:13px}
+.ah .ic{color:var(--muted)}
+.ab{padding:0 16px 14px}
+.fl{margin-bottom:12px}.fl:last-child{margin-bottom:0}
+.fl label{display:block;font-size:12px;color:var(--muted);margin-bottom:5px}
+.in{height:34px;display:flex;align-items:center;gap:8px;padding:0 10px;border:1px solid var(--border);border-radius:7px;background:var(--input)}
+.in.foc{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.in .u{margin-left:auto;color:var(--muted);font-size:11px}
+.sw{width:18px;height:18px;border-radius:4px;border:1px solid rgba(128,128,128,.35)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.sg{display:flex;border:1px solid var(--border);border-radius:7px;overflow:hidden}
+.sg span{flex:1;height:32px;display:grid;place-items:center;color:var(--muted);background:var(--input)}
+.sg span+span{border-left:1px solid var(--border)}
+.sg span.on{background:var(--accent-soft);color:var(--accent)}
+.em-chrome{border-radius:5px 5px 0 0}
+
+.em{width:600px;background:#fffdf9;color:#2b221c;font-family:'Noto Sans CJK JP','Noto Sans JP','Hiragino Kaku Gothic ProN',sans-serif;box-shadow:0 1px 2px rgba(20,14,8,.12),0 8px 28px rgba(20,14,8,.12);flex:none}
+.em-b{position:relative;outline:1px solid transparent;outline-offset:-1px}
+.em-b:hover{outline-color:var(--accent-line)}
+.em-b.sel{outline:2px solid var(--accent);outline-offset:-2px}
+.em-logo{display:flex;align-items:center;justify-content:center;gap:10px;padding:18px 24px;border-bottom:1px solid #eadfd2;background:#f6eee3}
+.em-logo b{font-size:15px;letter-spacing:.18em;font-weight:700}
+.em-logo small{font-size:10px;letter-spacing:.16em;color:#8a7561}
+.em-hero{display:block;width:100%;height:168px}
+.em h1{margin:0;padding:24px 32px 6px;font-size:22px;line-height:1.5;font-weight:700;text-align:left}
+.em p{margin:0;padding:6px 32px;font-size:14px;line-height:1.85}
+.em-info{display:flex;margin:10px 32px;border:1px solid #eadfd2;border-radius:6px;background:#faf3e8}
+.em-info div{flex:1;padding:12px 16px}
+.em-info div+div{border-left:1px solid #eadfd2}
+.em-info small{display:block;font-size:11px;color:#8a7561}
+.em-info strong{font-size:18px}
+.em-info strong.hi{color:#b0451d}
+.em-btn{text-align:left;padding:16px 32px 10px}
+.em-btn a{display:inline-block;background:#3b2a20;color:#fff;font-size:14px;font-weight:700;padding:12px 28px;border-radius:6px;text-decoration:none}
+.em p.em-note{font-size:12px;color:#6f5f50;padding-bottom:4px}
+.em-foot{margin-top:18px;padding:18px 32px 20px;background:#f6eee3;border-top:1px solid #eadfd2;font-size:11px;line-height:1.7;color:#8a7561;text-align:center}
+.em-chrome{position:absolute;right:-2px;top:-27px;z-index:3;display:flex;align-items:center;gap:1px;background:var(--accent);color:var(--accent-ink);border-radius:6px 6px 0 0;padding:0 3px;height:27px;font:600 11px/1 var(--font)}
+.em-chrome i{display:inline-flex;width:23px;height:23px;align-items:center;justify-content:center;border-radius:4px;font-style:normal}
+.em-chrome .tg{padding:0 8px 0 5px;margin-right:2px;border-right:1px solid rgba(255,255,255,.3)}
+
+.scope{width:100%;height:100%;overflow:hidden;background:var(--bg);color:var(--text);font:13px/1.45 var(--font);-webkit-font-smoothing:antialiased;position:relative}
+.scope .app{height:100%}
+.rail{width:56px;flex:none;background:var(--panel);border-right:1px solid var(--border);display:flex;flex-direction:column;align-items:center;gap:6px;padding:12px 0}
+.rail .rb{width:38px;height:38px;border-radius:9px;display:grid;place-items:center;color:var(--muted)}
+.rail .rb.on{background:var(--accent-soft);color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent-line)}
+.rail hr{width:24px;border:0;border-top:1px solid var(--border);margin:4px 0}
+.sheet{position:absolute;left:0;right:0;bottom:52px;background:var(--panel);border-radius:16px 16px 0 0;border-top:1px solid var(--border);box-shadow:0 -8px 24px rgba(16,24,40,.16);padding:8px 16px 14px}
+.sheet .grab{width:36px;height:4px;border-radius:2px;background:var(--border);margin:0 auto 10px}
+.btabs{position:absolute;left:0;right:0;bottom:0;height:52px;background:var(--panel);border-top:1px solid var(--border);display:flex}
+.btabs div{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:2px;font-size:11px;color:var(--muted);font-weight:500}
+.btabs div.on{color:var(--accent)}
+.hostpad{display:grid;place-items:center}
+.scope .tb{white-space:nowrap}
+
+.col{display:flex;flex-direction:column;gap:8px}
+.lab{display:flex;align-items:center;gap:6px;flex-wrap:wrap;font-size:13px}
+.rowtitle{display:flex;flex-wrap:wrap;align-items:center;gap:6px 10px;margin:22px 0 10px}.rowtitle .d{flex-basis:100%}
+.rowtitle b{font-size:17px}
+.rowtitle span.d{color:#6b7383;font-size:13px}
+.grid4{display:flex;gap:24px;align-items:flex-start}
+.live{display:block}
+.note{font-size:12.5px;color:#6b7383;line-height:1.5;margin-top:2px}
+
+.wfp{position:relative;border-radius:6px;overflow:hidden}
+.wf-pane{position:absolute;top:6px;bottom:6px;background:#eef3ff;border:1.5px dashed #9db4f5;border-radius:5px;display:flex;flex-direction:column;gap:4px;padding:5px;overflow:hidden}
+.wf-pane i{display:block;height:7px;border-radius:2px;background:#fff;border:1px solid #c9d6f7}
+.wf-cv{position:absolute;top:6px;bottom:6px;background:#e9ecf0;border-radius:5px;overflow:hidden}
+.wf-mail{position:absolute;top:8px;background:#fff;height:calc(100% - 8px);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.wf-mail i{display:block;margin:4px 5px;height:5px;background:#dde1e7;border-radius:2px}
+.wf-mail i.hero{height:16px;background:#b69a80}
+.wf-mail i.btn{width:30%;height:7px;background:#3b2a20}
+.wf-bad{position:absolute;inset:0;background:repeating-linear-gradient(45deg,rgba(217,74,50,.16) 0 6px,transparent 6px 12px)}
+.browser{border:2px solid #1f2430;border-radius:10px;background:#fff;overflow:hidden}
+.bar{height:22px;background:#eef0f3;border-bottom:1px solid #d7dbe1;display:flex;align-items:center;gap:5px;padding:0 9px;font:11px ui-monospace,Menlo,monospace;color:#6b7383}
+.bar u{width:8px;height:8px;border-radius:50%;background:#cfd3da;display:inline-block}
+.hostrow{display:flex;height:calc(100% - 22px)}
+.hostnav{background:#f1f3f6;border-right:1px solid #dcdfe5;padding:8px;display:flex;flex-direction:column;gap:6px}
+.hostnav i{height:8px;background:#d5d9e0;border-radius:3px;display:block}
+.hostmain{flex:1;padding:10px;position:relative;background:#fafbfc;min-width:0}
+.hostmain h6{margin:0 0 6px;height:9px;width:90px;background:#cfd4dc;border-radius:3px}
+.embed{position:absolute;left:10px;top:28px;bottom:10px;border:2px solid #2f6fed;border-radius:7px;background:#fff;box-shadow:0 0 0 3px rgba(47,111,237,.12)}
+.embed .hd{position:absolute;left:0;top:-17px;font:700 10px ui-monospace,Menlo,monospace;color:#2f6fed;white-space:nowrap}
+.verdict{display:flex;gap:8px;align-items:flex-start;margin-top:10px;font-size:13px;line-height:1.55}
+.verdict b.ng{color:#c0392b}.verdict b.ok{color:#0b7a56}
+.dim{position:absolute;left:0;right:0;height:0;border-top:1.5px solid #2f6fed}
+</style></head>
+<body style="width:1440px"><div class="wrap">
+<h1 class="x-h">レイアウトの判定基準: コンテナ幅 vs ビューポート幅</h1>
+<p class="x-sub">エディタが細いコンテナ(ホストページの 1 カラム)に埋め込まれたとき、どちらで形を決めるべきか。 <span class="x-no">mockup / not implemented</span></p>
+<div class="x-row">
+  <div class="x-card x-grow">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span class="x-tag">B</span><b class="x-t">ビューポート幅(メディアクエリ)</b></div>
+    <div class="browser" style="width:600px;height:260px"><div class="bar"><u></u><u></u><u></u>viewport 1440px</div><div class="hostrow"><div class="hostnav" style="width:80px"><i></i><i style="width:70%"></i><i></i><i style="width:60%"></i></div><div class="hostmain"><h6></h6><div class="embed" style="width:300px"><span class="hd">&lt;div id="editor"&gt; </span><div class="wfp" style="width:296px;height:196px"><div class="wf-pane" style="left:6px;width:101px"><i></i><i></i><i></i><i></i></div><div class="wf-cv" style="left:110px;width:71px"><div class="wf-mail" style="left:2px;width:67px"><i></i><i class="hero"></i><i></i><i></i><i class="btn"></i></div><div class="wf-bad"></div></div><div class="wf-pane" style="right:6px;width:112px"><i></i><i></i><i></i></div></div></div></div></div></div>
+    <div class="verdict"><b class="ng">NG</b><div>ウィンドウは 1440px なので「wide(3 ペイン)」と判定。しかしエディタの居場所は <b>300px</b> 幅で、左右ペインが固定幅のためキャンバスが潰れる(斜線部)。</div></div>
+  </div>
+  <div class="x-card x-grow">
+    <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px"><span class="x-tag">A</span><b class="x-t">コンテナ幅(ResizeObserver / @container)</b><span class="x-rec">推薦</span></div>
+    <div class="browser" style="width:600px;height:260px"><div class="bar"><u></u><u></u><u></u>viewport 1440px</div><div class="hostrow"><div class="hostnav" style="width:80px"><i></i><i style="width:70%"></i><i></i><i style="width:60%"></i></div><div class="hostmain"><h6></h6><div class="embed" style="width:300px"><span class="hd">&lt;div id="editor"&gt; </span><div class="wfp" style="width:296px;height:196px"><div class="wf-cv" style="left:6px;right:6px;bottom:71px"><div class="wf-mail" style="left:34px;width:216px"><i></i><i class="hero"></i><i></i><i></i><i class="btn"></i></div></div><div class="wf-pane" style="left:6px;right:6px;height:59px;top:auto;bottom:22px;background:#eef3ff;border-style:solid"><i></i><i></i></div><div class="wf-pane" style="left:6px;right:6px;height:12px;top:auto;bottom:6px;border-radius:3px;padding:0"></div></div></div></div></div></div>
+    <div class="verdict"><b class="ok">OK</b><div>同じ 1440px のウィンドウでも、エディタの居場所 <b>300px &lt; 760px</b> を見て「stacked」に。キャンバスを主役に、プロパティはボトムシートへ。</div></div>
+  </div>
+</div>
+<div class="x-card" style="margin-top:20px">
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:12px"><span class="x-tag">A</span><b class="x-t">ホスト側のサイドバー開閉でコンテナ幅が変わっても、その場で正しい形に追従する</b><span class="d x-d">(ウィンドウ幅は 1440px のまま)</span></div>
+  <div style="display:flex;align-items:center;gap:18px">
+    <div>
+      <div class="lab"><b>サイドバーを開いた状態</b><span class="x-mono" style="color:#2f6fed">container 900px → compact</span></div>
+      <div class="browser" style="width:520px;height:250px"><div class="bar"><u></u><u></u><u></u>viewport 1440px</div><div class="hostrow"><div class="hostnav" style="width:110px"><i></i><i style="width:70%"></i><i></i><i style="width:60%"></i></div><div class="hostmain"><h6></h6><div class="embed" style="width:380px"><span class="hd">&lt;div id="editor"&gt; </span><div class="wfp" style="width:376px;height:186px"><div class="wf-pane" style="left:6px;width:18px;padding:3px"><i style="height:10px"></i><i style="height:10px"></i><i style="height:10px"></i><i style="height:10px"></i></div><div class="wf-cv" style="left:30px;width:250px"><div class="wf-mail" style="left:38px;width:175px"><i></i><i class="hero"></i><i></i><i></i><i class="btn"></i></div></div><div class="wf-pane" style="right:6px;width:90px"><i></i><i></i><i></i></div></div></div></div></div></div>
+    </div>
+    <div style="font-size:28px;color:#6b7383;text-align:center;line-height:1.1">⇄<div style="font-size:11px">ホストの<br>サイドバー<br>開閉</div></div>
+    <div>
+      <div class="lab"><b>閉じた状態</b><span class="x-mono" style="color:#2f6fed">container 1140px → wide</span></div>
+      <div class="browser" style="width:520px;height:250px"><div class="bar"><u></u><u></u><u></u>viewport 1440px</div><div class="hostrow"><div class="hostnav" style="width:28px"><i></i><i style="width:70%"></i><i></i><i style="width:60%"></i></div><div class="hostmain"><h6></h6><div class="embed" style="width:440px"><span class="hd">&lt;div id="editor"&gt; </span><div class="wfp" style="width:436px;height:186px"><div class="wf-pane" style="left:6px;width:96px"><i></i><i></i><i></i><i></i></div><div class="wf-cv" style="left:105px;width:219px"><div class="wf-mail" style="left:44px;width:131px"><i></i><i class="hero"></i><i></i><i></i><i class="btn"></i></div></div><div class="wf-pane" style="right:6px;width:109px"><i></i><i></i><i></i></div></div></div></div></div></div>
+    </div>
+  </div>
+  <p class="x-d" style="margin-top:12px">ビューポート基準(B)だとどちらも同じ判定のまま。コンテナ基準(A)なら、幅の変化を検知して切替え、スクロール位置と選択状態は保持する(実装時の要件)。図の幅は模式で、実寸の縮尺ではありません。</p>
+</div>
+</div></body></html>
