@@ -41,6 +41,7 @@ Design
 | `src/core/sanitize.ts` | リッチテキストのサニタイズ(ブラウザ用) |
 | `src/editor/editor.ts` | キャンバス描画、D&D、キーボード操作、左サイドバー(コンテンツ / 行のタブ)と右コンテキストパネル(全体設定 / プロパティ) |
 | `src/editor/panel.ts` | プロパティパネル(アコーディオン式セクション) |
+| `src/editor/color.ts` | 色のパース・WCAG コントラスト・OKLCH 計算(ブランドカラー導出用の純関数) |
 | `src/editor/theme.ts` | テーマ型 `MailcraftTheme`、`defaultTheme` / `darkTheme`、CSS 変数への反映 |
 | `src/editor/icons.ts` | 自作のインライン SVG アイコン |
 | `src/editor/styles.css` | 全スタイル。色はすべて `--mc-*` 変数経由 |
@@ -98,6 +99,25 @@ Design
 - `mode: 'dark'` は `darkTheme` プリセットを土台にし、ユーザー指定値で上書きします。`setTheme` は指定値を累積して保持します(アクセント色を変えたあとにダークへ切り替えてもアクセントは保たれます)。
 - 選択枠・ホバー枠・フォーカスリング・淡い塗りは `color-mix()` で `--mc-accent` から導出しているので、色を 1 つ変えれば全体が追従します。`accentSoft` を指定したときだけ上書きします。
 - **テーマが影響するのはエディタの外枠だけ**です。メール本文の色は Design JSON の値であり、ダークモードでも書き出す HTML は変わりません(キャンバスは常に実際のメールの見た目)。
+
+### ブランドカラーからの導出 (実験的・issue #4 で議論中)
+
+`theme.brand = { primary, secondary, normal }`(重要度順の 3 色)から残りのトークンを自動導出します。実装は `src/editor/color.ts`(色計算)と `theme.ts` の `deriveTheme()`(純関数)です。
+
+```
+ brand.normal ──► 無彩色寄りの階調 (OKLCH: 色相は保持 / 彩度は低く固定 / 明度だけ再配置)
+                    └─► --mc-bg / --mc-panel / --mc-border / --mc-text / --mc-muted
+ brand.primary ─► --mc-accent (+ contrast / soft / line / hover / active / ink / focus-ring)
+ brand.secondary► --mc-secondary-* (行 chrome・タイルの hover 面・アイコン色 --mc-icon)
+        mode 'light' | 'dark' ─ 同じ 3 色から明度だけ変えて再導出
+```
+
+- **色空間**: 明度のずらし・混色は OKLab / OKLCH(知覚的に均等)。sRGB に収まらない場合は彩度を下げて収めます(色相・明度は保持)。
+- **コントラスト**: `onPrimary` / `onSecondary` は白か黒のうち AA(4.5:1)を満たす方(どちらも満たせない場合は高い方)。hover/active は文字色から遠ざける向きにずらすので、文字とのコントラストは下がりません。ダークでは primary/secondary をパネル上で 4.5:1 になるまで明るくします。ライトでは指定色をそのまま使い、パネル上で見えにくい(< 3:1)場合は `warnings` に出します。
+- **優先順位**: 明示キー(`background` / `panel` / `text` ...)> brand からの導出 > light/dark プリセット。`brand` も `accent` も無いときは従来どおりプリセットそのままで、`--mc-*` の追加変数は書きません(CSS 側のフォールバックが `--mc-secondary: var(--mc-accent)` なので見た目は従来と同じ)。
+- **`accent` エイリアス**: `accent` は `brand.primary` の別名で、`mergeThemeInput` が「最後に指定した方が勝つ」よう累積します。`brand` 未使用時の `accent` は従来どおりそのまま(ダークでも明るくしない)使います。
+- **入力の検証**: `accent` と `brand.*` は `parseColor` で検証し、不正値は無視して前の値を保持します(例外は投げません)。`setTheme` / `createEditor` は `mergeThemeInput` を通ります。
+- 既知の未対応: hover/active/disabled のトークンは用意しましたが、コンポーネントの CSS はまだ多くが参照していません(CSS は別作業の担当範囲のため)。
 
 ## 多言語 (i18n)
 

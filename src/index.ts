@@ -9,3 +9,7 @@ export { createDesign, createSampleDesign, createBlock, createRow } from './core
 export type * from './core/types.js';
 export { defaultLayout } from './editor/layout.js';
 export type { MailcraftLayout, MailcraftLayoutInput, LayoutMode, ResolvedLayout } from './editor/layout.js';
+export { deriveTheme, mergeThemeInput } from './editor/theme.js';
+export type { BrandColors, BrandPalette, BrandTones, ResolvedTheme, ThemeWarning } from './editor/theme.js';
+export { checkContrast, parseColor, normalizeColor } from './editor/color.js';
+export type { ContrastResult } from './editor/color.js';

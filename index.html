@@ -19,20 +19,31 @@
     .ctl input[type=color]{width:34px;padding:2px;cursor:pointer}
     .seg{display:inline-flex;border:1px solid var(--bar-border);border-radius:7px;overflow:hidden}
     .seg button{border:0;background:var(--field);color:var(--bar-text);height:30px;padding:0 10px;cursor:pointer;font:inherit}
-    .seg button.on{background:var(--primary);color:#fff}
+    .seg button.on{background:var(--primary);color:var(--on-primary,#fff)}
     .btn{border:1px solid var(--bar-border);border-radius:7px;background:var(--bar);color:var(--bar-text);height:30px;padding:0 10px;cursor:pointer;font:inherit;font-weight:500}
     .btn:hover{background:var(--field)}
-    .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
+    .btn.primary{background:var(--primary);border-color:var(--primary);color:var(--on-primary,#fff)}
     #editor{flex:none;min-height:0;margin:0 auto;width:100%;max-width:100%;transition:width .2s}
     #stage{flex:1;min-height:0;display:flex;overflow:auto;background:var(--bar)}
     #stage.framed{background:repeating-linear-gradient(45deg,var(--field),var(--field) 10px,var(--bar) 10px,var(--bar) 20px)}
-    .pop{position:relative}
-    .pop-menu{position:absolute;right:0;top:36px;z-index:20;width:300px;max-width:calc(100vw - 20px);padding:12px;border:1px solid var(--bar-border);border-radius:10px;background:var(--bar);box-shadow:0 8px 28px rgba(16,24,40,.22);display:none;flex-direction:column;gap:10px;white-space:normal}
+    .pop{position:static}
+    .pop-menu{position:absolute;right:10px;top:calc(100% + 4px);z-index:20;width:300px;max-width:calc(100vw - 20px);padding:12px;border:1px solid var(--bar-border);border-radius:10px;background:var(--bar);box-shadow:0 8px 28px rgba(16,24,40,.22);display:none;flex-direction:column;gap:10px;white-space:normal}
     .pop-menu.open{display:flex}
     .pop-row{display:flex;align-items:center;justify-content:space-between;gap:8px;color:var(--bar-muted);font-size:12px}
     .pop-row.col{flex-direction:column;align-items:stretch}
     .pop .seg button{flex:1}
     .pop-row label{display:flex;align-items:center;gap:6px;color:var(--bar-text)}
+    .swatch{display:inline-block;width:12px;height:12px;border-radius:50%;margin-right:6px;vertical-align:-1px;background:var(--primary);box-shadow:0 0 0 1px var(--bar-border)}
+    .chips{display:flex;flex-wrap:wrap;gap:6px}
+    .chip{display:inline-flex;align-items:center;gap:6px;border:1px solid var(--bar-border);border-radius:999px;background:var(--bar);color:var(--bar-text);height:28px;padding:0 10px 0 8px;cursor:pointer;font:inherit}
+    .chip.on{border-color:var(--primary);box-shadow:0 0 0 1px var(--primary)}
+    .chip i{display:inline-flex}.chip i b{width:10px;height:10px;border-radius:50%;margin-right:-3px;box-shadow:0 0 0 1px var(--bar)}
+    .pick{display:inline-flex;align-items:center;gap:6px}
+    .pick input[type=color]{width:34px;height:30px;padding:2px;border:1px solid var(--bar-border);border-radius:7px;background:var(--field);cursor:pointer}
+    .pick input[type=text]{width:104px;height:30px;box-sizing:border-box;border:1px solid var(--bar-border);border-radius:7px;background:var(--field);color:var(--bar-text);font:12px ui-monospace,Menlo,monospace;padding:0 8px}
+    .pick input.bad{border-color:#d92d20}
+    .tints{display:flex;height:18px;border-radius:5px;overflow:hidden;border:1px solid var(--bar-border)}.tints b{flex:1}
+    .pop-warn{margin:0;padding:8px 10px;border-radius:7px;background:rgba(245,158,11,.16);color:var(--bar-text);font-size:11.5px;line-height:1.5}
     .pop-note{margin:0;color:var(--bar-muted);font-size:11.5px;line-height:1.5}
     
     dialog{width:min(900px,92vw);height:70vh;border:0;border-radius:10px;padding:0;background:var(--bar);color:var(--bar-text)}
@@ -48,7 +59,16 @@
         <select id="sel-lang"><option value="en">English</option><option value="ja">日本語</option></select></label>
       <span class="ctl"><span id="lbl-theme">Theme</span>
         <span class="seg"><button id="theme-light" class="on">Light</button><button id="theme-dark">Dark</button></span></span>
-      <label class="ctl"><span id="lbl-accent">Accent</span><input type="color" id="inp-accent" value="#2f6fed"></label>
+      <span class="pop"><button class="btn" id="btn-brand" aria-haspopup="true" aria-expanded="false"><i class="swatch" id="sw-brand"></i><span id="lbl-brand">Brand</span></button>
+        <div class="pop-menu" id="pop-brand" role="group">
+          <div class="pop-row col"><span id="lbl-presets">Presets</span><span class="chips" id="presets"></span></div>
+          <div class="pop-row"><span id="lbl-primary">Primary</span><span class="pick"><input type="color" id="inp-primary"><input type="text" id="txt-primary" spellcheck="false" maxlength="40"></span></div>
+          <div class="pop-row"><span id="lbl-secondary">Secondary</span><span class="pick"><input type="color" id="inp-secondary"><input type="text" id="txt-secondary" spellcheck="false" maxlength="40"></span></div>
+          <div class="pop-row"><span id="lbl-normal">Normal</span><span class="pick"><input type="color" id="inp-normal"><input type="text" id="txt-normal" spellcheck="false" maxlength="40"></span></div>
+          <div class="tints" id="tints" aria-hidden="true"></div>
+          <p class="pop-note" id="note-brand"></p>
+          <p class="pop-warn" id="brand-warn" hidden></p>
+        </div></span>
       <span class="pop"><button class="btn" id="btn-layout" aria-haspopup="true" aria-expanded="false">Layout</button>
         <div class="pop-menu" id="pop-layout" role="group">
           <div class="pop-row col"><span id="lbl-mode">Layout</span>
