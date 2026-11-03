@@ -1,5 +1,5 @@
-import { createRow, uid } from './defaults';
-import type { Block, Column, Design, Row } from './types';
+import { createRow, uid } from './defaults.js';
+import type { Block, Column, Design, Row } from './types.js';
 
 export interface BlockLoc { row: Row; rowIndex: number; column: Column; columnIndex: number; index: number; block: Block }
 

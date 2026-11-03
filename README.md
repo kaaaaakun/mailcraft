@@ -21,11 +21,20 @@ npm test
 npm run build:lib  # library bundle in dist/
 ```
 
+## Install
+
+Mailcraft is not published to npm. Install it straight from GitHub (the `dist/` bundle is built automatically by the `prepare` script during install; Node 18+ and git required):
+
+```sh
+npm install github:kaaaaakun/mailcraft
+```
+
 ## Usage
 
 ```ts
 import { createEditor } from 'mailcraft';
-import 'mailcraft/dist/mailcraft.css';
+import type { EditorOptions, Design } from 'mailcraft';
+import 'mailcraft/style.css';   // required: editor styles (same file as mailcraft/dist/mailcraft.css)
 
 const editor = createEditor(document.getElementById('editor')!, {
   design: savedDesignJson,                 // optional: restore a saved design
@@ -33,20 +42,34 @@ const editor = createEditor(document.getElementById('editor')!, {
   imageUploader: async (file) => upload(file), // optional: return a hosted URL (default: base64)
 });
 
-editor.exportHtml({ title: 'Welcome' }); // → email HTML string
-editor.getDesign();                       // → design JSON
+editor.exportHtml({ title: 'Welcome' }); // -> email HTML string
+editor.getDesign();                       // -> design JSON
 editor.loadDesign(json);
 editor.undo(); editor.redo(); editor.destroy();
 ```
 
-Server side (Node, no DOM needed) you can render a saved design directly:
+The editor's container needs an explicit height (e.g. `style="height: 100vh"`).
+The editor needs a DOM (browser, or jsdom in tests). Both ESM (`import`) and CommonJS (`require`) entry points are provided, with TypeScript types.
 
-```ts
-import { renderHtml } from 'mailcraft';
-const html = renderHtml(designJson);
+### Server side (Node, no DOM needed)
+
+```js
+import { renderHtml, createSampleDesign } from 'mailcraft';   // or: const { renderHtml } = require('mailcraft');
+const html = renderHtml(designJson);                          // or renderHtml(createSampleDesign())
 ```
 
-The editor's container needs a height (e.g. `height: 100vh`).
+### Plain `<script>` tag (UMD)
+
+Copy `node_modules/mailcraft/dist/mailcraft.umd.cjs` and `mailcraft.css` to your static assets (rename the script to `.js` if your server does not serve `.cjs` as JavaScript):
+
+```html
+<link rel="stylesheet" href="mailcraft.css">
+<div id="editor" style="height: 100vh"></div>
+<script src="mailcraft.umd.js"></script>
+<script>
+  const editor = Mailcraft.createEditor(document.getElementById('editor'));
+</script>
+```
 
 ## Security notes
 

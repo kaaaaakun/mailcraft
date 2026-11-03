@@ -1,4 +1,4 @@
-import type { Block, Design, Padding, Row } from './types';
+import type { Block, Design, Padding, Row } from './types.js';
 
 export function esc(s: string): string {
   return String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');

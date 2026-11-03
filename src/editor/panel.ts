@@ -1,9 +1,9 @@
-import { FONT_FAMILIES } from '../core/defaults';
-import { findBlock, findRow, setRowLayout } from '../core/ops';
-import { safeUrl } from '../core/render';
-import type { EditorStore } from '../core/store';
-import type { Align, Block, Design, Padding, Row } from '../core/types';
-import { h } from './dom';
+import { FONT_FAMILIES } from '../core/defaults.js';
+import { findBlock, findRow, setRowLayout } from '../core/ops.js';
+import { safeUrl } from '../core/render.js';
+import type { EditorStore } from '../core/store.js';
+import type { Align, Block, Design, Padding, Row } from '../core/types.js';
+import { h } from './dom.js';
 
 export interface PanelContext {
   store: EditorStore;

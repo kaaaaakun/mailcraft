@@ -4,9 +4,35 @@
   "description": "Open-source, embeddable drag & drop email editor (an Unlayer-style alternative).",
   "type": "module",
   "license": "MIT",
-  "main": "./dist/mailcraft.js",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/kaaaaakun/mailcraft.git"
+  },
+  "homepage": "https://github.com/kaaaaakun/mailcraft#readme",
+  "bugs": {
+    "url": "https://github.com/kaaaaakun/mailcraft/issues"
+  },
+  "main": "./dist/mailcraft.umd.cjs",
   "module": "./dist/mailcraft.js",
   "types": "./dist/index.d.ts",
+  "exports": {
+    ".": {
+      "import": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/mailcraft.js"
+      },
+      "require": {
+        "types": "./dist/index.d.ts",
+        "default": "./dist/mailcraft.umd.cjs"
+      }
+    },
+    "./style.css": "./dist/mailcraft.css",
+    "./dist/mailcraft.css": "./dist/mailcraft.css",
+    "./package.json": "./package.json"
+  },
+  "sideEffects": [
+    "**/*.css"
+  ],
   "files": [
     "dist"
   ],
@@ -15,7 +41,8 @@
     "build": "tsc --noEmit && vite build",
     "build:lib": "vite build --mode lib && tsc -p tsconfig.build.json",
     "test": "vitest run",
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "prepare": "npm run build:lib"
   },
   "keywords": [
     "email",

@@ -1,4 +1,4 @@
-import type { Design } from './types';
+import type { Design } from './types.js';
 
 export type Selection = { kind: 'body' } | { kind: 'row'; id: string } | { kind: 'block'; id: string };
 /** What the UI should refresh after a change. */

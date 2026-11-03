@@ -1,11 +1,11 @@
-import { createBlock, createDesign, createRow } from '../core/defaults';
-import { duplicateBlock, duplicateRow, findBlock, insertBlock, insertRow, moveBlock, moveRow, removeBlock, removeRow, shiftBlock, shiftRow } from '../core/ops';
-import { renderBlockContent, renderHtml, paddingCss } from '../core/render';
-import { sanitizeRichText } from '../core/sanitize';
-import { EditorStore } from '../core/store';
-import type { Block, BlockType, Design, Row } from '../core/types';
-import { h } from './dom';
-import { ICON, LAYOUTS, renderPanel } from './panel';
+import { createBlock, createDesign, createRow } from '../core/defaults.js';
+import { duplicateBlock, duplicateRow, findBlock, insertBlock, insertRow, moveBlock, moveRow, removeBlock, removeRow, shiftBlock, shiftRow } from '../core/ops.js';
+import { renderBlockContent, renderHtml, paddingCss } from '../core/render.js';
+import { sanitizeRichText } from '../core/sanitize.js';
+import { EditorStore } from '../core/store.js';
+import type { Block, BlockType, Design, Row } from '../core/types.js';
+import { h } from './dom.js';
+import { ICON, LAYOUTS, renderPanel } from './panel.js';
 import './styles.css';
 
 export interface EditorOptions {

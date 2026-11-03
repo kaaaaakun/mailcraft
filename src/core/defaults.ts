@@ -1,4 +1,4 @@
-import type { Block, BlockType, Design, Padding, Row } from './types';
+import type { Block, BlockType, Design, Padding, Row } from './types.js';
 
 export function uid(prefix = 'mc'): string {
   const rnd =
