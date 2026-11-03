@@ -9,7 +9,7 @@ import { createI18n, type I18n, type MessageKey, type Messages } from '../i18n/i
 import { icon, type IconName } from './icons.js';
 import { BLOCK_ICON, BLOCK_LABEL, LAYOUTS, layoutPreview, renderPanel } from './panel.js';
 import { cloneLayout, defaultLayout, mergeLayout, resolveLayout, type MailcraftLayout, type MailcraftLayoutInput, type ResolvedLayout } from './layout.js';
-import { applyTheme, resolveTheme, type MailcraftTheme } from './theme.js';
+import { applyTheme, mergeThemeInput, resolveTheme, type BrandPalette, type MailcraftTheme, type ResolvedTheme } from './theme.js';
 import './styles.css';
 
 export interface EditorOptions {
@@ -38,7 +38,10 @@ export interface EditorInstance {
   redo(): void;
   /** Merge a partial theme into the current one and re-apply it. Does not touch the design. */
   setTheme(theme: Partial<MailcraftTheme>): void;
-  getTheme(): MailcraftTheme;
+  /** The resolved theme including derived tokens (`vars`, `palette`, `warnings`). */
+  getTheme(): ResolvedTheme;
+  /** The three resolved brand colors and their derived tints (for hosts and UI). */
+  getBrandPalette(): BrandPalette;
   /** Switch the UI language and re-render. */
   setLocale(locale: string): void;
   getLocale(): string;
@@ -75,7 +78,7 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
   let focusTextId: string | null = null;
   let tab: Tab = 'content';
   let i18n: I18n = createI18n(options.locale, options.messages);
-  let userTheme: Partial<MailcraftTheme> = { ...(options.theme ?? {}) };
+  let userTheme: Partial<MailcraftTheme> = mergeThemeInput({}, options.theme);
   let layout: MailcraftLayout = mergeLayout(defaultLayout, options.layout);
   let containerWidth = 0;
   let resolved: ResolvedLayout = 'wide';
@@ -480,10 +483,11 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     undo: () => store.undo(),
     redo: () => store.redo(),
     setTheme: (patch) => {
-      userTheme = { ...userTheme, ...patch };
+      userTheme = mergeThemeInput(userTheme, patch);
       applyTheme(root, resolveTheme(userTheme));
     },
     getTheme: () => resolveTheme(userTheme),
+    getBrandPalette: () => resolveTheme(userTheme).palette,
     setLocale: (code) => {
       i18n = createI18n(code, options.messages);
       root.lang = i18n.locale;

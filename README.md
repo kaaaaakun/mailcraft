@@ -78,7 +78,8 @@ interface EditorInstance {
   exportHtml(opts?: { title?: string }): string;
   undo(): void; redo(): void;
   setTheme(theme: Partial<MailcraftTheme>): void;
-  getTheme(): MailcraftTheme;
+  getTheme(): ResolvedTheme;                      // resolved theme incl. derived `vars`, `palette`, `warnings`
+  getBrandPalette(): BrandPalette;                // resolved brand colors + derived tints (experimental)
   setLocale(locale: string): void;
   getLocale(): string;
   setLayout(layout: MailcraftLayoutInput): void;  // merge a partial layout, applied live
@@ -144,6 +145,39 @@ editor.setTheme({ ...darkTheme, accent: '#22c55e' });
 | `radius` (px), `fontFamily` | shape and typography |
 
 `setTheme` accumulates: values you set earlier stay until you overwrite them. You can also override the `--mc-*` variables from your own CSS.
+
+### Brand colors (experimental)
+
+> **Experimental.** The theme API is still being discussed (issue #4). `theme.brand` is small and additive; names and derivation details may change before 1.0.
+
+Pass up to three brand colors, by importance. Everything else (hover/active/focus, soft backgrounds, text-on-color, the neutral surface scale, dark mode) is derived.
+
+```ts
+const editor = createEditor(el, {
+  theme: { brand: { primary: '#4f46e5', secondary: '#0ea5e9', normal: '#475467' } },
+});
+editor.setTheme({ brand: { primary: '#059669' } }); // partial and accumulating, like every other key
+editor.setTheme({ mode: 'dark' });                  // the same three colors are re-derived for dark
+editor.getBrandPalette();                           // { primary, secondary, normal, tints: {...}, warnings }
+editor.getTheme().warnings;                         // contrast problems, never thrown
+```
+
+| Brand color | Drives |
+|---|---|
+| `primary` | selection outline of blocks, focus rings, primary buttons and active toggles, active tabs, drop indicator, text on it (`accentContrast`, white or black, WCAG AA) |
+| `secondary` | row-level chrome and selection (so rows read differently from blocks), badges/tags, icon highlights on tiles, hover tints of tiles, `--mc-secondary-*` |
+| `normal` | text, muted text, borders, workspace background, panels and inputs, as a tinted neutral scale (hue of `normal`, low chroma) for light and dark |
+
+- `secondary` defaults to `primary`; `normal` defaults to the built-in neutral preset.
+- Derived per color: `soft` (tint mixed into the panel), `line` (translucent), `hover`, `active`, `ink` (readable as text/icon on `soft`), `contrast` (white/black on top of it). Also `--mc-focus-ring` and `--mc-disabled-bg/-text`. They are CSS variables on the editor root (`--mc-accent-hover`, `--mc-secondary-soft`, ...) and are listed in `getTheme().vars`.
+- Dark mode keeps hue and chroma, re-maps lightness, and lifts `primary`/`secondary` until they reach 4.5:1 on the dark panel. In light mode your color is used as given; if it is hard to see on the panel (< 3:1) or the text on it cannot reach 4.5:1, `getTheme().warnings` says so.
+- **Precedence:** explicit keys (`background`, `panel`, `border`, `text`, `muted`, `accentContrast`, `accentSoft`) > brand-derived values > the light/dark preset.
+- **`accent` stays as an alias of `brand.primary`**: whichever you set last wins. Without any `brand` colors `accent` is used verbatim in both modes (as before), but its `accentContrast` is computed (AA) when you do not pass one. Once a `brand` color is set, `accent` is adapted to the mode like `brand.primary`.
+- **Accepted formats** for `accent` and `brand.*`: `#rgb`, `#rgba`, `#rrggbb`, `#rrggbbaa` (alpha is ignored), `rgb()/rgba()`, `hsl()/hsla()` (comma or space syntax) and basic color names (`red`, `navy`, `coral`, ...). Anything else (`var(--x)`, `color-mix()`, typos) is **ignored and the previous value is kept**; nothing throws. The other keys (`background`, `panel`, ...) are passed through as CSS and may still be any CSS color.
+
+Pure helpers are exported for hosts and tests: `deriveTheme(input)`, `mergeThemeInput(prev, patch)`, `checkContrast(fg, bg)` (WCAG ratio plus `aa`/`aaLarge`/`aaa` flags), `parseColor`, `normalizeColor`.
+
+The demo has a **Brand** popover (presets Indigo / Green / Coral / Mono, three pickers, contrast warnings) and accepts `?primary=%234f46e5&secondary=%230ea5e9&normal=%23475467` (`?accent=` is an alias of `primary`; invalid values are ignored).
 
 > The theme styles the **editor UI only**. Colors of the email itself (backgrounds, text, buttons) live in the design JSON and are never affected, so dark mode does not change the exported email.
 
