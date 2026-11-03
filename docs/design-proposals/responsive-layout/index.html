@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mailcraft responsive layout diagram</title>
+<!-- Static diagram for discussion (no JS). -->
+<style>
+*{box-sizing:border-box}
+body{margin:0;width:1440px;background:#f6f7f9;color:#1f2430;font:14px/1.5 'Inter','Noto Sans CJK JP','Noto Sans JP',system-ui,sans-serif;padding:36px 40px 40px}
+h1{margin:0 0 4px;font-size:22px}
+.sub{color:#6b7383;margin-bottom:26px}
+.row{display:flex;gap:28px;align-items:flex-end}
+.col{display:flex;flex-direction:column;gap:10px}
+.cap b{display:block;font-size:15px}
+.cap span{color:#6b7383;font-size:12.5px}
+.bp{display:inline-block;font:600 11px ui-monospace,Menlo,monospace;background:#e8edf9;color:#2f5fd0;border-radius:4px;padding:2px 6px;margin-right:6px}
+.frame{border:2px solid #1f2430;border-radius:10px;background:#fff;overflow:hidden;display:flex;flex-direction:column;position:relative}
+.bar{height:26px;background:#f1f2f5;border-bottom:1px solid #dfe2e8;display:flex;align-items:center;gap:4px;padding:0 8px;font-size:10px;color:#6b7383}
+.bar i{width:8px;height:8px;border-radius:50%;background:#c9ced8}
+.body{flex:1;display:flex;min-height:0}
+.pane{display:flex;flex-direction:column;gap:6px;padding:8px;font-size:11px;font-weight:600;color:#2f5fd0;background:#eef3ff;border:1px dashed #9db6ef;border-radius:6px;margin:6px;align-items:center;justify-content:flex-start}
+.pane small{font-weight:500;color:#6b7383;font-size:10px}
+.tiles{display:grid;gap:4px;width:100%;margin-top:4px}
+.tiles i{height:22px;border-radius:4px;background:#fff;border:1px solid #c9d6f3}
+.canvas{flex:1;margin:6px;background:#eceef2;border-radius:6px;display:flex;justify-content:center;padding-top:10px}
+.mail{width:62%;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.15);display:flex;flex-direction:column;gap:5px;padding:7px;height:92%}
+.mail i{display:block;height:7px;border-radius:2px;background:#d5d9e1}
+.mail i.h{height:34px;background:#b79a82}.mail i.b{height:14px;width:45%;background:#3b2a20}
+.rail{width:34px;margin:6px;border-radius:6px;background:#eef3ff;border:1px dashed #9db6ef;display:flex;flex-direction:column;gap:6px;align-items:center;padding:8px 0}
+.rail i{width:16px;height:16px;border-radius:4px;background:#9db6ef}
+.sheet{background:#eef3ff;border-top:2px solid #2f6fed;padding:8px 10px;color:#2f5fd0;font-weight:600;font-size:11px}
+.stack{flex-direction:column}
+.tabsb{display:flex;gap:4px;padding:6px;border-top:1px solid #dfe2e8;background:#f6f7f9}
+.tabsb span{flex:1;text-align:center;padding:5px 0;border-radius:6px;background:#fff;border:1px solid #dfe2e8;font-size:11px;font-weight:600;color:#6b7383}
+.tabsb span.on{background:#2f6fed;color:#fff;border-color:#2f6fed}
+.opt{margin-top:26px;display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
+.opt div{background:#fff;border:1px solid #dfe2e8;border-radius:10px;padding:14px 16px}
+.opt code{font:12px ui-monospace,Menlo,monospace;background:#f1f2f5;padding:1px 5px;border-radius:4px}
+.opt b{display:block;margin-bottom:4px}
+.arrow{align-self:center;font-size:26px;color:#9aa3b2}
+</style></head><body>
+<h1>Layout adapts to the editor's container width</h1>
+<div class="sub">エディタを置いたコンテナの幅(ビューポートではなく)に応じて 3 段階で切り替える案 / container-width based layout modes (proposal, not implemented)</div>
+<div class="row">
+  <div class="col" style="width:640px">
+    <div class="frame" style="height:380px"><div class="bar"><i></i><i></i><i></i>&nbsp;container 1100px+</div>
+      <div class="body">
+        <div class="pane" style="width:170px">ツール<small>左: パレット</small><div class="tiles" style="grid-template-columns:repeat(3,1fr)"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></div></div>
+        <div class="canvas"><div class="mail"><i></i><i class="h"></i><i></i><i></i><i></i><i class="b"></i></div></div>
+        <div class="pane" style="width:150px">プロパティ<small>右: 選択中のブロック</small><div class="tiles"><i></i><i></i><i></i><i></i></div></div>
+      </div></div>
+    <div class="cap"><b><span class="bp">wide</span>3 ペイン(split)</b><span>左 260–300px / 右 300–340px。既定の見た目。</span></div>
+  </div>
+  <div class="col" style="width:380px">
+    <div class="frame" style="height:380px"><div class="bar"><i></i><i></i><i></i>&nbsp;container 760–1100px</div>
+      <div class="body">
+        <div class="rail"><i></i><i></i><i></i><i></i></div>
+        <div class="canvas"><div class="mail" style="width:74%"><i></i><i class="h"></i><i></i><i></i><i class="b"></i></div></div>
+        <div class="pane" style="width:110px">プロパティ<small>幅を圧縮</small><div class="tiles"><i></i><i></i><i></i></div></div>
+      </div></div>
+    <div class="cap"><b><span class="bp">medium</span>コンパクト</b><span>左はアイコンレール化(クリックで展開フライアウト)。右は 240px 前後に圧縮。</span></div>
+  </div>
+  <div class="col" style="width:250px">
+    <div class="frame" style="height:380px"><div class="bar"><i></i><i></i><i></i>&nbsp;container &lt; 760px</div>
+      <div class="body stack"><div class="canvas" style="margin:6px"><div class="mail" style="width:88%"><i></i><i class="h"></i><i></i><i></i><i class="b"></i></div></div></div>
+      <div class="sheet">プロパティ(ボトムシート)<small style="display:block;font-weight:500;color:#6b7383;font-size:10px">ブロック選択時に下からせり上がる</small></div>
+      <div class="tabsb"><span class="on">ツール</span><span>キャンバス</span><span>設定</span></div>
+    </div>
+    <div class="cap"><b><span class="bp">narrow</span>スタック(stacked)</b><span>1 ペインずつ。下部タブで切替、プロパティはシート表示。</span></div>
+  </div>
+</div>
+<div class="opt">
+  <div><b>mode: 'auto'</b>コンテナ幅に応じて上の 3 形態を自動で切替(<code>ResizeObserver</code>)。</div>
+  <div><b>mode: 'split' / 'stacked'</b>常に 3 ペイン、または常にスタックに固定(埋め込み先の都合に合わせる)。</div>
+  <div><b>sidebars</b><code>{ left: 'show' | 'hide' | 'rail', right: 'show' | 'hide' }</code> のように個別に制御する案。</div>
+</div>
+</body></html>
