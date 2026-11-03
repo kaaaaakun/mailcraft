@@ -6,11 +6,15 @@ import type { Align, Block, BlockType, Design, Padding, Row } from '../core/type
 import type { I18n, MessageKey } from '../i18n/index.js';
 import { h } from './dom.js';
 import { icon, type IconName } from './icons.js';
+import type { UploadResult } from './upload.js';
 
 export interface PanelContext {
   store: EditorStore;
   i18n: I18n;
-  uploadImage: (file: File) => Promise<string>;
+  /** Validates (type / size), uploads and reports a localized error instead of throwing. */
+  upload: (file: File) => Promise<UploadResult>;
+  /** Screen-reader announcement (aria-live). */
+  announce?: (message: string) => void;
   /** Copy the current contenteditable content of a text block into the store. */
   syncText: (blockId: string) => void;
   getEditable: (blockId: string) => HTMLElement | null;
@@ -58,18 +62,58 @@ function textField(label: string, value: string, onInput: (v: string) => void, m
   return field(label, el);
 }
 
-function numberField(label: string, value: number, min: number, max: number, onInput: (v: number) => void) {
-  const num = h('input', { type: 'number', min, max, value: String(value) });
-  const range = h('input', { type: 'range', min, max, value: String(value) });
-  const apply = (raw: string) => {
-    const n = Math.max(min, Math.min(max, Number(raw)));
-    if (Number.isNaN(n)) return;
-    num.value = String(n);
+const decimalsOf = (step: number) => (String(step).split('.')[1] ?? '').length;
+
+/**
+ * A number input (+ optional slider) that is friendly to typing: valid in-range values are applied live, but the text is never
+ * rewritten while the user types ("24" must not become "64" on the way). Clamping / restoring happens on change, blur and Enter.
+ */
+function numberControl(value: number, min: number, max: number, onValue: (n: number) => void, step = 1) {
+  const dec = decimalsOf(step);
+  const round = (n: number) => Number(n.toFixed(dec));
+  const norm = (n: number) => Math.min(max, Math.max(min, round(n)));
+  const fmt = (n: number) => String(round(n));
+  let last = value;
+  let dirty = false;
+  const num = h('input', { type: 'number', min, max, step, value: fmt(value), inputmode: dec ? 'decimal' : 'numeric' });
+  const range = h('input', { type: 'range', min, max, step, value: String(Math.min(max, Math.max(min, value))) });
+  const apply = (n: number) => { if (n !== last) { last = n; onValue(n); } };
+  const setBoth = (n: number) => { num.value = fmt(n); range.value = String(n); };
+  num.addEventListener('input', () => {
+    dirty = true;
+    if (num.value.trim() === '') return; // empty / invalid while typing: wait for blur
+    const n = round(Number(num.value));
+    if (!Number.isFinite(n) || n < min || n > max) return; // out of range mid-typing ("2" on the way to "24"): do not touch the text
     range.value = String(n);
-    onInput(n);
+    apply(n);
+  });
+  const commit = () => {
+    if (!dirty) return;
+    dirty = false;
+    const raw = num.value.trim() === '' ? NaN : Number(num.value);
+    const v = Number.isFinite(raw) ? norm(raw) : last; // empty / invalid -> back to the last valid value
+    setBoth(v);
+    apply(v);
   };
-  num.addEventListener('input', () => apply(num.value));
-  range.addEventListener('input', () => apply(range.value));
+  num.addEventListener('change', commit);
+  num.addEventListener('blur', commit);
+  num.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); dirty = true; commit(); return; }
+    if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && e.shiftKey) { // Shift+Arrow: 10 steps at a time
+      e.preventDefault();
+      const cur = num.value.trim() === '' || !Number.isFinite(Number(num.value)) ? last : Number(num.value);
+      const v = norm(cur + (e.key === 'ArrowUp' ? 1 : -1) * step * 10);
+      dirty = false;
+      setBoth(v);
+      apply(v);
+    }
+  });
+  range.addEventListener('input', () => { const v = Number(range.value); dirty = false; num.value = fmt(v); apply(v); });
+  return { num, range };
+}
+
+function numberField(label: string, value: number, min: number, max: number, onInput: (v: number) => void, step = 1) {
+  const { num, range } = numberControl(value, min, max, onInput, step);
   return field(label, h('div', { class: 'mc-num' }, range, num));
 }
 
@@ -106,8 +150,7 @@ function alignField(ctx: PanelContext, value: Align, onChange: (v: Align) => voi
 function paddingFields(ctx: PanelContext, p: Padding, onChange: (k: keyof Padding, v: number) => void) {
   const keys: [keyof Padding, MessageKey][] = [['top', 'padTop'], ['right', 'padRight'], ['bottom', 'padBottom'], ['left', 'padLeft']];
   const mk = ([k, label]: [keyof Padding, MessageKey]) => {
-    const i = h('input', { type: 'number', min: 0, max: 200, value: String(p[k]) });
-    i.addEventListener('input', () => onChange(k, Math.max(0, Math.min(200, Number(i.value) || 0))));
+    const { num: i } = numberControl(p[k], 0, 200, (n) => onChange(k, n));
     return h('label', { class: 'mc-pad' }, h('span', {}, ctx.i18n.t(label)), i);
   };
   return field(ctx.i18n.t('fPadding'), h('div', { class: 'mc-pads' }, ...keys.map(mk)));
@@ -145,7 +188,7 @@ export function renderPanel(ctx: PanelContext, view: 'props' | 'body'): HTMLElem
     const setRow = (key: keyof Row, v: unknown) => store.change((d) => { const r = findRow(d, row.id); if (r) (r as any)[key] = v; }, { render: 'canvas', coalesceKey: `r:${row.id}:${String(key)}` });
     const layouts = h('div', { class: 'mc-layouts' }, ...LAYOUTS.map((l) =>
       h('button', {
-        type: 'button', class: 'mc-layout' + (l.ratios.join() === row.ratios.join() ? ' on' : ''), title: l.ratios.join(' : '),
+        type: 'button', class: 'mc-layout' + (l.ratios.join() === row.ratios.join() ? ' on' : ''), title: l.ratios.join(' : '), 'aria-pressed': String(l.ratios.join() === row.ratios.join()), 'data-layout': l.ratios.join(':'),
         'on:click': () => store.change((d) => { const r = findRow(d, row.id); if (r) setRowLayout(r, l.ratios); }),
       }, layoutPreview(l.ratios))));
     const stack = h('input', { type: 'checkbox', checked: row.stackOnMobile, 'on:change': (e: Event) => setRow('stackOnMobile', (e.target as HTMLInputElement).checked) });
@@ -190,7 +233,7 @@ function blockFields(ctx: PanelContext, b: Block, set: (id: string, key: string,
     case 'text':
       return [
         section(ctx, 'format', t('secFormat'), richToolbar(ctx, id)),
-        section(ctx, 'style', t('secStyle'), numberField(t('fFontSize'), b.fontSize, 10, 48, s('fontSize')), numberField(t('fLineHeight'), Math.round(b.lineHeight * 10), 10, 30, (v) => set(id, 'lineHeight', v / 10)), color(t('fColor'), b.color, 'color'), alignField(ctx, b.align, s('align'))),
+        section(ctx, 'style', t('secStyle'), numberField(t('fFontSize'), b.fontSize, 10, 48, s('fontSize')), numberField(t('fLineHeight'), b.lineHeight, 1, 3, s('lineHeight'), 0.1), color(t('fColor'), b.color, 'color'), alignField(ctx, b.align, s('align'))),
       ];
     case 'heading':
       return [
@@ -201,11 +244,7 @@ function blockFields(ctx: PanelContext, b: Block, set: (id: string, key: string,
       return [
         section(ctx, 'image', t('secImage'),
           textField(t('fImageUrl'), b.src.startsWith('data:') ? t('uploadedImage') : b.src, (v) => set(id, 'src', v)),
-          field(t('fUpload'), h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', 'on:change': async (e: Event) => {
-            const f = (e.target as HTMLInputElement).files?.[0];
-            if (f) set(id, 'src', await ctx.uploadImage(f));
-            ctx.store.select(ctx.store.selection); // refresh panel
-          } })),
+          uploadField(ctx, id, set),
           textField(t('fAltText'), b.alt, s('alt')),
           textField(t('fLinkUrl'), b.href, s('href'))),
         section(ctx, 'style', t('secStyle'), numberField(t('fWidthPercent'), b.widthPercent, 5, 100, s('widthPercent')), alignField(ctx, b.align, s('align'))),
@@ -224,6 +263,37 @@ function blockFields(ctx: PanelContext, b: Block, set: (id: string, key: string,
     case 'html':
       return [section(ctx, 'content', t('secContent'), textField(t('fHtml'), b.html, s('html'), true), h('p', { class: 'mc-warn' }, icon('warn', 14), h('span', {}, t('htmlWarning'))))];
   }
+}
+
+/** File picker with validation feedback: a pending state while uploading and an inline error on failure. */
+function uploadField(ctx: PanelContext, id: string, set: (id: string, key: string, v: unknown) => void): HTMLElement {
+  const { t } = ctx.i18n;
+  const status = h('div', { class: 'mc-upload-status', role: 'status', hidden: true }, h('span', { class: 'mc-spin', 'aria-hidden': 'true' }), h('span', {}, t('uploading')));
+  const holder = h('div', { class: 'mc-upload-msg' });
+  const input = h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp' });
+  const showError = (msg: string) => {
+    holder.replaceChildren(h('p', { class: 'mc-upload-error', role: 'alert' }, icon('warn', 14), h('span', {}, msg)));
+    input.setAttribute('aria-invalid', 'true');
+    ctx.announce?.(msg);
+  };
+  input.addEventListener('change', async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    holder.replaceChildren();
+    input.removeAttribute('aria-invalid');
+    input.disabled = true;
+    status.hidden = false;
+    input.setAttribute('aria-busy', 'true');
+    const res = await ctx.upload(f);
+    input.disabled = false;
+    status.hidden = true;
+    input.removeAttribute('aria-busy');
+    input.value = ''; // allow picking the same file again
+    if (!res.ok) { showError(res.message); return; }
+    set(id, 'src', res.src);
+    ctx.store.select(ctx.store.selection); // refresh panel
+  });
+  return field(t('fUpload'), h('div', { class: 'mc-upload' }, input, status, holder));
 }
 
 function richToolbar(ctx: PanelContext, id: string): Node {
