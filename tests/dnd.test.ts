@@ -56,7 +56,7 @@ describe('drag & drop', () => {
     const col = el.querySelectorAll('.mc-col')[0];
     fire(rowTile('1:2'), 'dragstart');
     expect(fire(col, 'dragover', -1).defaultPrevented).toBe(true);
-    fire(col, 'drop');
+    fire(col, 'drop', -1);
     const d = ed.getDesign();
     expect(d.rows).toHaveLength(7);
     expect(d.rows[0].ratios).toEqual([1, 2]);
@@ -69,7 +69,7 @@ describe('drag & drop', () => {
     const col = el.querySelectorAll<HTMLElement>('.mc-col')[0];
     fire(tile('spacer'), 'dragstart');
     fire(col, 'dragover', -1);
-    fire(col, 'drop');
+    fire(col, 'drop', -1);
     const d = ed.getDesign();
     expect(d.rows).toHaveLength(6);
     expect(d.rows[0].columns[0].blocks[0].type).toBe('spacer');
@@ -127,5 +127,53 @@ describe('drag & drop', () => {
     // a later stray drop does nothing
     fire(el.querySelector('.mc-canvas-wrap')!, 'drop');
     expect(ed.getDesign().rows).toHaveLength(6);
+  });
+
+  it('WebKit-style dragleave (relatedTarget null, no coordinates) between children does not lose the drop', () => {
+    ed = createEditor(el, { design: createSampleDesign() });
+    const col = el.querySelectorAll<HTMLElement>('.mc-col')[0];
+    fire(tile('spacer'), 'dragstart');
+    fire(col, 'dragover', -1);
+    fire(col, 'dragleave', 0, { relatedTarget: null, clientX: 0 }); // spurious leave while moving between child elements
+    fire(col, 'drop', -1); // released before the next dragover tick: target must be recomputed from the drop itself
+    expect(ed.getDesign().rows[0].columns[0].blocks[0].type).toBe('spacer');
+    clean();
+  });
+
+  it('a drop with no preceding dragover still lands (target is computed from the drop event)', () => {
+    ed = createEditor(el, { design: createSampleDesign() });
+    const before = ed.getDesign().rows.length;
+    fire(tile('button'), 'dragstart');
+    fire(el.querySelector('.mc-page')!, 'drop', 1);
+    expect(ed.getDesign().rows).toHaveLength(before + 1);
+    clean();
+  });
+
+  it('the indicator is hidden while the pointer is over chrome outside the workspace (document-level dragover)', () => {
+    ed = createEditor(el, { design: createSampleDesign() });
+    fire(tile('button'), 'dragstart');
+    fire(el.querySelectorAll('.mc-col')[0], 'dragover', 1);
+    expect(el.querySelectorAll('.mc-indicator')).toHaveLength(1);
+    fire(el.querySelector('.mc-panel')!, 'dragover');
+    expect(el.querySelectorAll('.mc-indicator')).toHaveLength(0);
+    fire(tile('button'), 'dragend');
+    clean();
+  });
+
+  it('image files dragged from the OS become image blocks (and never navigate the browser)', async () => {
+    ed = createEditor(el, { design: createSampleDesign(), imageUploader: async (f) => `https://cdn.test/${f.name}` });
+    const file = new File(['x'], 'photo.png', { type: 'image/png' });
+    const dt = { types: ['Files'], files: [file], dropEffect: '' };
+    const over = fire(el.querySelectorAll('.mc-col')[0], 'dragover', -1, { dataTransfer: dt });
+    expect(over.defaultPrevented).toBe(true);
+    expect(el.querySelectorAll('.mc-indicator')).toHaveLength(1);
+    fire(el.querySelectorAll('.mc-col')[0], 'drop', -1, { dataTransfer: dt });
+    await new Promise((r) => setTimeout(r, 0));
+    const b = ed.getDesign().rows[0].columns[0].blocks[0];
+    expect(b.type).toBe('image');
+    expect((b as { src: string }).src).toBe('https://cdn.test/photo.png');
+    // files dropped on chrome are swallowed too
+    expect(fire(el.querySelector('.mc-toolbar')!, 'dragover', 0, { dataTransfer: dt }).defaultPrevented).toBe(true);
+    clean();
   });
 });

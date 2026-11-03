@@ -22,6 +22,8 @@ npm test
 npm run build:lib  # library bundle in dist/
 ```
 
+Optional real-pointer drag & drop E2E (not part of `npm test`): `npm run build && npx vite preview --outDir dist-demo --port 4173`, then in another shell `npm i --no-save playwright-core && npx playwright-core install chromium firefox && BROWSER=chromium node tests/e2e/dnd-real.mjs` (`BASE_URL`, `BROWSER=firefox`, `SAFARI_SIM=1` supported).
+
 ## Install
 
 Mailcraft is not published to npm. Install it straight from GitHub (the `dist/` bundle is built automatically by the `prepare` script during install; Node 18+ and git required):

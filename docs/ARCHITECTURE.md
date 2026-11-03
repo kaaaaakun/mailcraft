@@ -98,6 +98,13 @@ Design
 
 キャンバス外(パネルなど)ではドロップ不可にし、`dragleave` で挿入インジケーターを消します。`dragend` / `drop` はドキュメントレベルでも捕捉して、ドラッグ状態とインジケーターを必ず後始末します(以前はポインタが列からパネルへ出てもインジケーターが残る不具合がありました)。`tests/dnd.test.ts` が各組み合わせを検証します。
 
+### 実ブラウザでの落とし穴(対策済み)
+
+- **ドロップ先は `drop` イベント自体から再計算する**。直前の `dragover` の結果に頼ると、WebKit では `dragleave` の `relatedTarget` が常に `null` のため、子要素を跨ぐたびにターゲットが消え、素早く離すと「何も起きない」状態になった。`dragleave` も座標で判定し、パネル等の上では document レベルの `dragover`(capture)でインジケーターを消す。
+- **OS からの画像ファイルのドロップ**(`dataTransfer.types` に `Files`)は画像ブロックとして挿入し、アップロード後に `src` を設定する。エディタのクローム部分(ツールバー等)に落としてもブラウザがファイルへ遷移しないよう `preventDefault` する。
+- **タッチ端末**: HTML5 D&D はタッチで不安定なため、タイルの **クリックで追加** を併用する(ポインタイベント版は未実装)。
+- **実ポインタ E2E**: `tests/e2e/dnd-real.mjs`(`npm test` には含まれない)。`npm i --no-save playwright-core` の上で `BROWSER=chromium|firefox node tests/e2e/dnd-real.mjs`(`BASE_URL` でデモ URL を指定、`SAFARI_SIM=1` で WebKit 風の `relatedTarget=null` を再現)。
+
 ## 検証方法 🧪
 
 ```bash

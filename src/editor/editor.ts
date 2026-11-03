@@ -197,15 +197,19 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     canvas.classList.remove('mc-dragging');
   }
 
-  function applyDrop() {
-    const p = drag, t = dropTarget;
+  const hasFiles = (e: DragEvent) => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+  /** The thing being dragged: an internal payload, or (when nothing internal is active) files from the OS, which become image blocks. */
+  const payloadOf = (e: DragEvent): Payload | null => drag ?? (hasFiles(e) ? { kind: 'new-block', type: 'image' } : null);
+
+  function applyDrop(p: Payload | null, t: DropTarget | null, files: File[] = []) {
     clearDrag();
     if (!p || !t) return;
     if (t.type === 'col' && (p.kind === 'new-block' || p.kind === 'move-block')) {
       if (p.kind === 'new-block') {
-        const b = createBlock(p.type, labels());
-        store.change((d) => { insertBlock(d, t.colId, t.index, b); });
-        selectBlock(b);
+        const blocks = newBlocks(p.type, files);
+        store.change((d) => { blocks.forEach((b, i) => insertBlock(d, t.colId, t.index + i, b)); });
+        selectBlock(blocks[blocks.length - 1]);
+        uploadInto(blocks, files);
       } else {
         store.change((d) => { moveBlock(d, p.id, t.colId, t.index); });
         store.select({ kind: 'block', id: p.id });
@@ -213,10 +217,11 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     } else if (t.type === 'block-row' && (p.kind === 'new-block' || p.kind === 'move-block')) {
       const row = createRow([1]);
       if (p.kind === 'new-block') {
-        const b = createBlock(p.type, labels());
-        row.columns[0].blocks.push(b);
+        const blocks = newBlocks(p.type, files);
+        row.columns[0].blocks.push(...blocks);
         store.change((d) => insertRow(d, t.index, row));
-        selectBlock(b);
+        selectBlock(blocks[blocks.length - 1]);
+        uploadInto(blocks, files);
       } else {
         store.change((d) => {
           const moved = removeBlock(d, p.id);
@@ -236,6 +241,20 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
         store.select({ kind: 'row', id: p.id });
       }
     }
+  }
+
+  /** One fresh block, or one image block per dropped file. */
+  const newBlocks = (type: BlockType, files: File[]): Block[] =>
+    files.length ? files.map(() => createBlock('image', labels())) : [createBlock(type, labels())];
+
+  function uploadInto(blocks: Block[], files: File[]) {
+    const upload = options.imageUploader ?? readAsDataUrl;
+    files.forEach((f, i) => {
+      upload(f).then((src) => store.change((d) => {
+        const loc = findBlock(d, blocks[i].id);
+        if (loc && loc.block.type === 'image') { loc.block.src = src; loc.block.alt = f.name.replace(/\.[^.]+$/, ''); }
+      })).catch(() => { /* leave the placeholder; the user can retry from the panel */ });
+    });
   }
 
   const indexByPointer = (parent: HTMLElement, selector: string, y: number) => {
@@ -319,8 +338,9 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
 
   /** Work out the drop target under the pointer and move the indicator there. Returns false when nothing is droppable. */
   function updateDropTarget(e: DragEvent): boolean {
-    if (!drag) return false;
-    const isBlock = drag.kind === 'new-block' || drag.kind === 'move-block';
+    const p = payloadOf(e);
+    if (!p) return false;
+    const isBlock = p.kind === 'new-block' || p.kind === 'move-block';
     const colEl = isBlock ? (e.target as HTMLElement).closest?.<HTMLElement>('.mc-col') : null;
     if (colEl && canvas.contains(colEl) && colEl.dataset.col) {
       const { items, index } = indexByPointer(colEl, '.mc-block', e.clientY);
@@ -337,11 +357,33 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
   canvasWrap.addEventListener('dragover', (e) => {
     if (updateDropTarget(e)) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = drag?.kind.startsWith('move') ? 'move' : 'copy'; }
   });
+  // Leaving the workspace hides the indicator. WebKit never sets `relatedTarget` on drag events, so fall back to the pointer position
+  // (some engines report 0,0 on dragleave; that is treated as "unknown" and left to the document-level dragover check below).
   canvasWrap.addEventListener('dragleave', (e) => {
     const to = e.relatedTarget as Node | null;
-    if (!to || !canvasWrap.contains(to)) { dropTarget = null; indicator.remove(); }
+    const r = canvasWrap.getBoundingClientRect();
+    const outside = to ? !canvasWrap.contains(to) : (e.clientX !== 0 || e.clientY !== 0) && (e.clientX < r.left || e.clientX >= r.right || e.clientY < r.top || e.clientY >= r.bottom);
+    if (outside) { dropTarget = null; indicator.remove(); }
   });
-  canvasWrap.addEventListener('drop', (e) => { e.preventDefault(); applyDrop(); });
+  // The drop target is recomputed from the drop event itself, so a release between two dragover ticks (or after a spurious
+  // dragleave) still lands where the pointer is instead of silently doing nothing.
+  canvasWrap.addEventListener('drop', (e) => {
+    e.preventDefault();
+    const p = payloadOf(e);
+    if (!p) return;
+    const files = drag ? [] : Array.from(e.dataTransfer?.files ?? []).filter((f) => f.type.startsWith('image/'));
+    updateDropTarget(e);
+    applyDrop(p, dropTarget, files);
+  });
+  // While dragging, anything outside the workspace (sidebar, panel, toolbar) is not a drop target: hide the indicator there.
+  // Runs on every dragover, so it also covers engines whose dragleave is unreliable.
+  const onDocDragOver = (ev: DragEvent) => {
+    if (drag && !canvasWrap.contains(ev.target as Node)) { dropTarget = null; indicator.remove(); }
+  };
+  document.addEventListener('dragover', onDocDragOver, true);
+  // Files dropped on the editor chrome must never make the browser navigate away to the file.
+  root.addEventListener('dragover', (e) => { if (hasFiles(e) && !drag) e.preventDefault(); });
+  root.addEventListener('drop', (e) => { if (hasFiles(e) && !drag) e.preventDefault(); });
   // Whatever happens (cancelled drop, drop outside the canvas), never leave a stale indicator or drag state behind.
   const onDragEnd = () => clearDrag();
   document.addEventListener('dragend', onDragEnd, true);
@@ -409,6 +451,6 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
       renderAll();
     },
     getLocale: () => i18n.locale,
-    destroy: () => { unsubscribe(); document.removeEventListener('dragend', onDragEnd, true); document.removeEventListener('drop', onDragEnd); container.replaceChildren(); },
+    destroy: () => { unsubscribe(); document.removeEventListener('dragend', onDragEnd, true); document.removeEventListener('drop', onDragEnd); document.removeEventListener('dragover', onDocDragOver, true); container.replaceChildren(); },
   };
 }
