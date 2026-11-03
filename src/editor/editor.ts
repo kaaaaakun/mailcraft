@@ -3,6 +3,7 @@ import { duplicateBlock, duplicateRow, findBlock, insertBlock, insertRow, moveBl
 import { renderBlockContent, renderHtml, paddingCss } from '../core/render.js';
 import { sanitizeRichText } from '../core/sanitize.js';
 import { EditorStore } from '../core/store.js';
+import { normalizeDesign } from '../core/validate.js';
 import type { Block, BlockType, Design, Row } from '../core/types.js';
 import { h } from './dom.js';
 import { createI18n, type I18n, type MessageKey, type Messages } from '../i18n/index.js';
@@ -33,7 +34,7 @@ export interface EditorOptions {
 export interface EditorInstance {
   getDesign(): Design;
   loadDesign(design: Design): void;
-  exportHtml(opts?: { title?: string }): string;
+  exportHtml(opts?: { title?: string; trustedHtml?: boolean }): string;
   undo(): void;
   redo(): void;
   /** Merge a partial theme into the current one and re-apply it. Does not touch the design. */
@@ -67,7 +68,7 @@ const readAsDataUrl = (f: File) =>
   new Promise<string>((res, rej) => { const r = new FileReader(); r.onload = () => res(String(r.result)); r.onerror = rej; r.readAsDataURL(f); });
 
 export function createEditor(container: HTMLElement, options: EditorOptions = {}): EditorInstance {
-  const store = new EditorStore(options.design ?? createDesign());
+  const store = new EditorStore(options.design ? normalizeDesign(options.design) : createDesign());
   let device: 'desktop' | 'mobile' = 'desktop';
   let preview = false;
   let drag: Payload | null = null;
@@ -320,9 +321,8 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
   function renderBlock(b: Block): HTMLElement {
     const selected = store.selection.kind === 'block' && store.selection.id === b.id;
     const content = h('div', { class: 'mc-block-content' });
-    const safe: Block = b.type === 'text' || b.type === 'html' ? { ...b, html: sanitizeRichText(b.html) } : b;
     if (b.type === 'image' && !b.src) content.append(h('div', { class: 'mc-img-ph' }, icon('image', 28), h('span', {}, t('imagePlaceholder'))));
-    else content.innerHTML = renderBlockContent(safe);
+    else content.innerHTML = renderBlockContent(b); // coerces fields + sanitizes text/html (same code as the export)
 
     if (b.type === 'text') {
       const editable = content.firstElementChild as HTMLElement;
@@ -475,7 +475,7 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
 
   return {
     getDesign: () => structuredClone(store.design),
-    loadDesign: (d) => store.replace(d),
+    loadDesign: (d) => store.replace(normalizeDesign(d)),
     exportHtml: (opts) => renderHtml(store.design, opts),
     undo: () => store.undo(),
     redo: () => store.redo(),
