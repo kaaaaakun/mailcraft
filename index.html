@@ -5,28 +5,46 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Mailcraft demo</title>
   <style>
-    html,body{margin:0;height:100%;font-family:-apple-system,'Segoe UI',sans-serif}
+    :root{--bar:#ffffff;--bar-text:#1d2330;--bar-border:#e2e5ea;--bar-muted:#6b7280;--primary:#2f6fed;--field:#f4f5f7}
+    :root[data-demo-theme=dark]{--bar:#1e222b;--bar-text:#e6e9ef;--bar-border:#2d323d;--bar-muted:#9aa3b2;--field:#14171d}
+    html,body{margin:0;height:100%;font-family:Inter,-apple-system,'Segoe UI',Roboto,'Hiragino Kaku Gothic ProN','Yu Gothic',sans-serif;font-size:13px;background:var(--bar);color:var(--bar-text)}
     #app{display:flex;flex-direction:column;height:100%}
-    header{display:flex;align-items:center;gap:8px;padding:8px 14px;background:#111827;color:#fff}
-    header b{margin-right:auto}
-    header button{border:0;border-radius:6px;padding:6px 12px;background:#4f46e5;color:#fff;cursor:pointer}
+    header{display:flex;align-items:center;gap:14px;padding:0 14px;height:48px;flex:none;background:var(--bar);border-bottom:1px solid var(--bar-border);overflow-x:auto;white-space:nowrap}
+    .brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:15px;margin-right:auto}
+    .brand i{width:22px;height:22px;border-radius:6px;background:var(--primary);display:inline-block;position:relative}
+    .brand i::after{content:'';position:absolute;inset:6px 5px;border:2px solid #fff;border-radius:2px}
+    .ctl{display:flex;align-items:center;gap:6px;color:var(--bar-muted);font-size:12px}
+    .ctl select,.ctl input[type=color]{height:30px;border:1px solid var(--bar-border);border-radius:7px;background:var(--field);color:var(--bar-text);font:inherit;padding:0 6px}
+    .ctl input[type=color]{width:34px;padding:2px;cursor:pointer}
+    .seg{display:inline-flex;border:1px solid var(--bar-border);border-radius:7px;overflow:hidden}
+    .seg button{border:0;background:var(--field);color:var(--bar-text);height:30px;padding:0 10px;cursor:pointer;font:inherit}
+    .seg button.on{background:var(--primary);color:#fff}
+    .btn{border:1px solid var(--bar-border);border-radius:7px;background:var(--bar);color:var(--bar-text);height:30px;padding:0 12px;cursor:pointer;font:inherit;font-weight:500}
+    .btn:hover{background:var(--field)}
+    .btn.primary{background:var(--primary);border-color:var(--primary);color:#fff}
     #editor{flex:1;min-height:0}
-    dialog{width:min(900px,92vw);height:70vh;border:0;border-radius:10px;padding:0}
-    dialog textarea{width:100%;height:calc(100% - 44px);border:0;padding:12px;font:12px ui-monospace,monospace;box-sizing:border-box}
+    dialog{width:min(900px,92vw);height:70vh;border:0;border-radius:10px;padding:0;background:var(--bar);color:var(--bar-text)}
+    dialog textarea{width:100%;height:calc(100% - 44px);border:0;padding:12px;font:12px ui-monospace,monospace;box-sizing:border-box;background:var(--field);color:var(--bar-text)}
     dialog form{text-align:right;padding:6px 10px}
   </style>
 </head>
 <body>
   <div id="app">
     <header>
-      <b>💌 Mailcraft</b>
-      <button id="btn-html">Export HTML</button>
-      <button id="btn-json">Export JSON</button>
-      <button id="btn-copy">Copy HTML</button>
+      <span class="brand"><i></i>Mailcraft</span>
+      <label class="ctl"><span id="lbl-lang">Language</span>
+        <select id="sel-lang"><option value="en">English</option><option value="ja">日本語</option></select></label>
+      <span class="ctl"><span id="lbl-theme">Theme</span>
+        <span class="seg"><button id="theme-light" class="on">Light</button><button id="theme-dark">Dark</button></span></span>
+      <label class="ctl"><span id="lbl-accent">Accent</span><input type="color" id="inp-accent" value="#2f6fed"></label>
+      <button class="btn" id="btn-sample">Load sample</button>
+      <button class="btn" id="btn-html">Export HTML</button>
+      <button class="btn" id="btn-json">Export JSON</button>
+      <button class="btn primary" id="btn-copy">Copy HTML</button>
     </header>
     <div id="editor"></div>
   </div>
-  <dialog id="dlg"><textarea id="out" readonly></textarea><form method="dialog"><button>Close</button></form></dialog>
+  <dialog id="dlg"><textarea id="out" readonly></textarea><form method="dialog"><button class="btn" id="btn-close">Close</button></form></dialog>
   <script type="module" src="/demo/main.ts"></script>
 </body>
 </html>
