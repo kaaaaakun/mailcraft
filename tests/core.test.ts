@@ -10,8 +10,8 @@ describe('renderHtml', () => {
     expect(html).toContain('<!DOCTYPE html>');
     expect(html).toContain('<title>T</title>');
     expect(html).toContain('role="presentation"');
-    expect(html).toContain('Welcome to Mailcraft');
-    expect(html).toContain('width="50%"'); // 1:1 row
+    expect(html).toContain('autumn collection');
+    expect(html).toContain('width="33.33%"'); // 1:1:1 row
   });
 
   it('computes column widths from ratios', () => {

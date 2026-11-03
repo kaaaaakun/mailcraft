@@ -2,32 +2,58 @@ import { FONT_FAMILIES } from '../core/defaults.js';
 import { findBlock, findRow, setRowLayout } from '../core/ops.js';
 import { safeUrl } from '../core/render.js';
 import type { EditorStore } from '../core/store.js';
-import type { Align, Block, Design, Padding, Row } from '../core/types.js';
+import type { Align, Block, BlockType, Design, Padding, Row } from '../core/types.js';
+import type { I18n, MessageKey } from '../i18n/index.js';
 import { h } from './dom.js';
+import { icon, type IconName } from './icons.js';
 
 export interface PanelContext {
   store: EditorStore;
+  i18n: I18n;
   uploadImage: (file: File) => Promise<string>;
   /** Copy the current contenteditable content of a text block into the store. */
   syncText: (blockId: string) => void;
   getEditable: (blockId: string) => HTMLElement | null;
+  /** Titles of accordion sections the user collapsed (kept across re-renders). */
+  collapsed: Set<string>;
 }
 
-export const LAYOUTS: { label: string; ratios: number[] }[] = [
-  { label: '1', ratios: [1] },
-  { label: '1 : 1', ratios: [1, 1] },
-  { label: '1 : 1 : 1', ratios: [1, 1, 1] },
-  { label: '1 : 2', ratios: [1, 2] },
-  { label: '2 : 1', ratios: [2, 1] },
-  { label: '1 : 1 : 1 : 1', ratios: [1, 1, 1, 1] },
+export const LAYOUTS: { ratios: number[] }[] = [
+  { ratios: [1] },
+  { ratios: [1, 1] },
+  { ratios: [1, 1, 1] },
+  { ratios: [1, 2] },
+  { ratios: [2, 1] },
+  { ratios: [1, 1, 1, 1] },
+  { ratios: [1, 2, 1] },
+  { ratios: [3, 1] },
 ];
 
-const field = (label: string, control: Node) => h('label', { class: 'mc-field' }, h('span', { class: 'mc-field-label' }, label), control);
-const section = (title: string, ...kids: Node[]) => h('section', { class: 'mc-section' }, h('h4', {}, title), ...kids);
+export const BLOCK_ICON: Record<BlockType, IconName> = { text: 'text', heading: 'heading', image: 'image', button: 'button', divider: 'divider', spacer: 'spacer', html: 'html' };
+export const BLOCK_LABEL: Record<BlockType, MessageKey> = { text: 'blockText', heading: 'blockHeading', image: 'blockImage', button: 'blockButton', divider: 'blockDivider', spacer: 'blockSpacer', html: 'blockHtml' };
+
+/** Mini column-layout preview used by the row picker (palette and properties). */
+export function layoutPreview(ratios: number[]): HTMLElement {
+  return h('span', { class: 'mc-layout-prev' }, ...ratios.map((r) => h('i', { style: `flex:${r}` })));
+}
+
+function field(label: string, control: Node, inline = false) {
+  return h('label', { class: 'mc-field' + (inline ? ' mc-field-inline' : '') }, h('span', { class: 'mc-field-label' }, label), control);
+}
+
+function section(ctx: PanelContext, id: string, title: string, ...kids: (Node | null)[]) {
+  const key = id;
+  const det = h('details', { class: 'mc-section' },
+    h('summary', {}, h('span', {}, title), icon('chevron', 14)),
+    h('div', { class: 'mc-section-body' }, ...kids));
+  det.open = !ctx.collapsed.has(key);
+  det.addEventListener('toggle', () => { if (det.open) ctx.collapsed.delete(key); else ctx.collapsed.add(key); });
+  return det;
+}
 
 function textField(label: string, value: string, onInput: (v: string) => void, multiline = false) {
   const el = multiline
-    ? h('textarea', { rows: 5, value, 'on:input': (e: Event) => onInput((e.target as HTMLTextAreaElement).value) })
+    ? h('textarea', { rows: 6, value, spellcheck: 'false', 'on:input': (e: Event) => onInput((e.target as HTMLTextAreaElement).value) })
     : h('input', { type: 'text', value, 'on:input': (e: Event) => onInput((e.target as HTMLInputElement).value) });
   return field(label, el);
 }
@@ -47,11 +73,12 @@ function numberField(label: string, value: number, min: number, max: number, onI
   return field(label, h('div', { class: 'mc-num' }, range, num));
 }
 
-function colorField(label: string, value: string, onInput: (v: string) => void, allowClear = false) {
+function colorField(ctx: PanelContext, label: string, value: string, onInput: (v: string) => void, allowClear = false) {
   const color = h('input', { type: 'color', value: /^#[0-9a-f]{6}$/i.test(value) ? value : '#ffffff' });
-  color.addEventListener('input', () => onInput(color.value));
-  const kids: Node[] = [color];
-  if (allowClear) kids.push(h('button', { type: 'button', class: 'mc-mini', 'on:click': () => onInput('') }, 'None'));
+  const hex = h('span', { class: 'mc-hex' }, value || ctx.i18n.t('none'));
+  color.addEventListener('input', () => { hex.textContent = color.value; onInput(color.value); });
+  const kids: Node[] = [color, hex];
+  if (allowClear) kids.push(h('button', { type: 'button', class: 'mc-mini', 'on:click': (e: Event) => { e.preventDefault(); hex.textContent = ctx.i18n.t('none'); onInput(''); } }, ctx.i18n.t('none')));
   return field(label, h('div', { class: 'mc-color' }, ...kids));
 }
 
@@ -61,11 +88,11 @@ function selectField<T extends string>(label: string, options: [T, string][], va
   return field(label, sel);
 }
 
-function alignField(value: Align, onChange: (v: Align) => void) {
-  const items: [Align, string][] = [['left', '⬅'], ['center', '↔'], ['right', '➡']];
+function alignField(ctx: PanelContext, value: Align, onChange: (v: Align) => void) {
+  const items: [Align, IconName, MessageKey][] = [['left', 'alignLeft', 'alignLeft'], ['center', 'alignCenter', 'alignCenter'], ['right', 'alignRight', 'alignRight']];
   const wrap = h('div', { class: 'mc-seg' });
-  for (const [a, icon] of items) {
-    const btn = h('button', { type: 'button', class: a === value ? 'on' : '', title: a }, icon);
+  for (const [a, ic, label] of items) {
+    const btn = h('button', { type: 'button', class: a === value ? 'on' : '', title: ctx.i18n.t(label), 'aria-label': ctx.i18n.t(label) }, icon(ic, 16));
     btn.addEventListener('click', () => {
       onChange(a);
       wrap.querySelectorAll('button').forEach((b) => b.classList.remove('on'));
@@ -73,20 +100,26 @@ function alignField(value: Align, onChange: (v: Align) => void) {
     });
     wrap.append(btn);
   }
-  return field('Align', wrap);
+  return field(ctx.i18n.t('fAlign'), wrap);
 }
 
-function paddingFields(p: Padding, onChange: (k: keyof Padding, v: number) => void) {
-  const mk = (k: keyof Padding, l: string) => {
-    const i = h('input', { type: 'number', min: 0, max: 200, value: String(p[k]), title: k });
+function paddingFields(ctx: PanelContext, p: Padding, onChange: (k: keyof Padding, v: number) => void) {
+  const keys: [keyof Padding, MessageKey][] = [['top', 'padTop'], ['right', 'padRight'], ['bottom', 'padBottom'], ['left', 'padLeft']];
+  const mk = ([k, label]: [keyof Padding, MessageKey]) => {
+    const i = h('input', { type: 'number', min: 0, max: 200, value: String(p[k]) });
     i.addEventListener('input', () => onChange(k, Math.max(0, Math.min(200, Number(i.value) || 0))));
-    return h('label', { class: 'mc-pad' }, h('span', {}, l), i);
+    return h('label', { class: 'mc-pad' }, h('span', {}, ctx.i18n.t(label)), i);
   };
-  return field('Padding (px)', h('div', { class: 'mc-pads' }, mk('top', '↑'), mk('right', '→'), mk('bottom', '↓'), mk('left', '←')));
+  return field(ctx.i18n.t('fPadding'), h('div', { class: 'mc-pads' }, ...keys.map(mk)));
 }
 
-export function renderPanel(ctx: PanelContext): HTMLElement {
-  const { store } = ctx;
+function panelTitle(ic: IconName, title: string, sub?: string) {
+  return h('div', { class: 'mc-panel-title' }, h('span', { class: 'mc-panel-title-ico' }, icon(ic, 18)), h('div', {}, h('h3', {}, title), sub ? h('p', {}, sub) : null));
+}
+
+export function renderPanel(ctx: PanelContext, view: 'props' | 'body'): HTMLElement {
+  const { store, i18n } = ctx;
+  const { t } = i18n;
   const sel = store.selection;
   const root = h('div', { class: 'mc-panel-inner' });
 
@@ -95,31 +128,33 @@ export function renderPanel(ctx: PanelContext): HTMLElement {
   const setBlockPad = (id: string, k: keyof Padding, v: number) =>
     store.change((d) => { const loc = findBlock(d, id); if (loc) loc.block.padding[k] = v; }, { render: 'canvas', coalesceKey: `bp:${id}:${k}` });
 
-  if (sel.kind === 'block') {
+  if (view === 'props' && sel.kind === 'block') {
     const loc = findBlock(store.design, sel.id);
     if (!loc) return root;
     const b = loc.block;
     const id = b.id;
-    root.append(h('h3', {}, `${ICON[b.type]} ${b.type[0].toUpperCase()}${b.type.slice(1)}`));
+    root.append(panelTitle(BLOCK_ICON[b.type], t(BLOCK_LABEL[b.type])));
     root.append(...blockFields(ctx, b, setBlock));
-    root.append(section('Spacing', paddingFields(b.padding, (k, v) => setBlockPad(id, k, v))));
+    root.append(section(ctx, 'spacing', t('secSpacing'), paddingFields(ctx, b.padding, (k, v) => setBlockPad(id, k, v))));
     return root;
   }
 
-  if (sel.kind === 'row') {
+  if (view === 'props' && sel.kind === 'row') {
     const row = findRow(store.design, sel.id);
     if (!row) return root;
     const setRow = (key: keyof Row, v: unknown) => store.change((d) => { const r = findRow(d, row.id); if (r) (r as any)[key] = v; }, { render: 'canvas', coalesceKey: `r:${row.id}:${String(key)}` });
     const layouts = h('div', { class: 'mc-layouts' }, ...LAYOUTS.map((l) =>
       h('button', {
-        type: 'button', class: 'mc-layout' + (l.ratios.join() === row.ratios.join() ? ' on' : ''), title: l.label,
+        type: 'button', class: 'mc-layout' + (l.ratios.join() === row.ratios.join() ? ' on' : ''), title: l.ratios.join(' : '),
         'on:click': () => store.change((d) => { const r = findRow(d, row.id); if (r) setRowLayout(r, l.ratios); }),
-      }, h('span', { class: 'mc-layout-prev' }, ...l.ratios.map((r) => h('i', { style: `flex:${r}` }))))));
+      }, layoutPreview(l.ratios))));
+    const stack = h('input', { type: 'checkbox', checked: row.stackOnMobile, 'on:change': (e: Event) => setRow('stackOnMobile', (e.target as HTMLInputElement).checked) });
     root.append(
-      h('h3', {}, '▤ Row'),
-      section('Layout', layouts, field('Stack on mobile', h('input', { type: 'checkbox', checked: row.stackOnMobile, 'on:change': (e: Event) => setRow('stackOnMobile', (e.target as HTMLInputElement).checked) }))),
-      section('Style', colorField('Background', row.backgroundColor, (v) => setRow('backgroundColor', v), true),
-        paddingFields(row.padding, (k, v) => store.change((d) => { const r = findRow(d, row.id); if (r) r.padding[k] = v; }, { render: 'canvas', coalesceKey: `rp:${row.id}:${k}` }))),
+      panelTitle('rows', t('rowName')),
+      section(ctx, 'layout', t('secLayout'), field(t('fColumnLayout'), layouts), field(t('fStackOnMobile'), h('span', { class: 'mc-check' }, stack), true)),
+      section(ctx, 'style', t('secStyle'), colorField(ctx, t('fBackground'), row.backgroundColor, (v) => setRow('backgroundColor', v), true)),
+      section(ctx, 'spacing', t('secSpacing'),
+        paddingFields(ctx, row.padding, (k, v) => store.change((d) => { const r = findRow(d, row.id); if (r) r.padding[k] = v; }, { render: 'canvas', coalesceKey: `rp:${row.id}:${k}` }))),
     );
     return root;
   }
@@ -127,66 +162,72 @@ export function renderPanel(ctx: PanelContext): HTMLElement {
   // body
   const setBody = (key: keyof Design['body'], v: unknown) => store.change((d) => { (d.body as any)[key] = v; }, { render: 'canvas', coalesceKey: `body:${key}` });
   const body = store.design.body;
+  const fonts = Object.entries(FONT_FAMILIES).map(([l, v]) => [v, fontLabel(i18n, l)] as [string, string]);
   root.append(
-    h('h3', {}, '⚙️ Email settings'),
-    section('Layout', numberField('Content width', body.contentWidth, 320, 800, (v) => setBody('contentWidth', v))),
-    section('Colors',
-      colorField('Page background', body.backgroundColor, (v) => setBody('backgroundColor', v)),
-      colorField('Content background', body.contentBackgroundColor, (v) => setBody('contentBackgroundColor', v))),
-    section('Text',
-      selectField('Font', Object.entries(FONT_FAMILIES).map(([l, v]) => [v, l] as [string, string]), body.fontFamily, (v) => setBody('fontFamily', v)),
-      textField('Preheader', body.preheader, (v) => setBody('preheader', v))),
-    h('p', { class: 'mc-hint' }, 'Select a row or block on the canvas to edit it.'),
+    panelTitle('settings', t('panelBodyTitle'), t('panelBodyHint')),
+    section(ctx, 'layout', t('secLayout'), numberField(t('fContentWidth'), body.contentWidth, 320, 800, (v) => setBody('contentWidth', v))),
+    section(ctx, 'colors', t('secColors'),
+      colorField(ctx, t('fPageBackground'), body.backgroundColor, (v) => setBody('backgroundColor', v)),
+      colorField(ctx, t('fContentBackground'), body.contentBackgroundColor, (v) => setBody('contentBackgroundColor', v))),
+    section(ctx, 'text', t('secText'),
+      selectField(t('fFont'), fonts, body.fontFamily, (v) => setBody('fontFamily', v)),
+      textField(t('fPreheader'), body.preheader, (v) => setBody('preheader', v))),
   );
   return root;
 }
 
-export const ICON: Record<Block['type'], string> = { text: '📝', heading: '🔠', image: '🖼️', button: '🔘', divider: '➖', spacer: '↕️', html: '🧩' };
+function fontLabel(i18n: I18n, name: string): string {
+  const map: Record<string, MessageKey> = { 'Sans-serif': 'fontSans', Serif: 'fontSerif', Monospace: 'fontMono', 'Japanese (Gothic)': 'fontJapanese' };
+  return map[name] ? i18n.t(map[name]) : name;
+}
 
 function blockFields(ctx: PanelContext, b: Block, set: (id: string, key: string, v: unknown) => void): Node[] {
   const id = b.id;
+  const { t } = ctx.i18n;
   const s = (key: string) => (v: unknown) => set(id, key, v);
+  const color = (label: string, v: string, key: string) => colorField(ctx, label, v, s(key));
   switch (b.type) {
     case 'text':
       return [
-        section('Format', richToolbar(ctx, id)),
-        section('Style', numberField('Font size', b.fontSize, 10, 48, s('fontSize')), numberField('Line height (×10)', Math.round(b.lineHeight * 10), 10, 30, (v) => set(id, 'lineHeight', v / 10)), colorField('Color', b.color, s('color')), alignField(b.align, s('align'))),
+        section(ctx, 'format', t('secFormat'), richToolbar(ctx, id)),
+        section(ctx, 'style', t('secStyle'), numberField(t('fFontSize'), b.fontSize, 10, 48, s('fontSize')), numberField(t('fLineHeight'), Math.round(b.lineHeight * 10), 10, 30, (v) => set(id, 'lineHeight', v / 10)), color(t('fColor'), b.color, 'color'), alignField(ctx, b.align, s('align'))),
       ];
     case 'heading':
       return [
-        section('Content', textField('Text', b.text, s('text')), selectField('Level', [['1', 'H1'], ['2', 'H2'], ['3', 'H3']], String(b.level) as '1', (v) => set(id, 'level', Number(v)))),
-        section('Style', numberField('Font size', b.fontSize, 12, 64, s('fontSize')), colorField('Color', b.color, s('color')), alignField(b.align, s('align'))),
+        section(ctx, 'content', t('secContent'), textField(t('fText'), b.text, s('text')), selectField(t('fHeadingLevel'), [['1', 'H1'], ['2', 'H2'], ['3', 'H3']], String(b.level) as '1', (v) => set(id, 'level', Number(v)))),
+        section(ctx, 'style', t('secStyle'), numberField(t('fFontSize'), b.fontSize, 12, 64, s('fontSize')), color(t('fColor'), b.color, 'color'), alignField(ctx, b.align, s('align'))),
       ];
     case 'image':
       return [
-        section('Image',
-          textField('URL', b.src.startsWith('data:') ? '(uploaded image)' : b.src, (v) => set(id, 'src', v)),
-          field('Upload', h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', 'on:change': async (e: Event) => {
+        section(ctx, 'image', t('secImage'),
+          textField(t('fImageUrl'), b.src.startsWith('data:') ? t('uploadedImage') : b.src, (v) => set(id, 'src', v)),
+          field(t('fUpload'), h('input', { type: 'file', accept: 'image/png,image/jpeg,image/gif,image/webp', 'on:change': async (e: Event) => {
             const f = (e.target as HTMLInputElement).files?.[0];
             if (f) set(id, 'src', await ctx.uploadImage(f));
             ctx.store.select(ctx.store.selection); // refresh panel
           } })),
-          textField('Alt text', b.alt, s('alt')),
-          textField('Link URL', b.href, s('href'))),
-        section('Style', numberField('Width %', b.widthPercent, 5, 100, s('widthPercent')), alignField(b.align, s('align'))),
+          textField(t('fAltText'), b.alt, s('alt')),
+          textField(t('fLinkUrl'), b.href, s('href'))),
+        section(ctx, 'style', t('secStyle'), numberField(t('fWidthPercent'), b.widthPercent, 5, 100, s('widthPercent')), alignField(ctx, b.align, s('align'))),
       ];
     case 'button':
       return [
-        section('Content', textField('Label', b.text, s('text')), textField('Link URL', b.href, s('href'))),
-        section('Style', colorField('Background', b.backgroundColor, s('backgroundColor')), colorField('Text color', b.color, s('color')),
-          numberField('Font size', b.fontSize, 10, 32, s('fontSize')), numberField('Corner radius', b.borderRadius, 0, 40, s('borderRadius')),
-          numberField('Inner padding Y', b.innerPaddingY, 0, 40, s('innerPaddingY')), numberField('Inner padding X', b.innerPaddingX, 0, 80, s('innerPaddingX')), alignField(b.align, s('align'))),
+        section(ctx, 'content', t('secContent'), textField(t('fLabel'), b.text, s('text')), textField(t('fLinkUrl'), b.href, s('href'))),
+        section(ctx, 'style', t('secStyle'), color(t('fBackground'), b.backgroundColor, 'backgroundColor'), color(t('fTextColor'), b.color, 'color'),
+          numberField(t('fFontSize'), b.fontSize, 10, 32, s('fontSize')), numberField(t('fCornerRadius'), b.borderRadius, 0, 40, s('borderRadius')),
+          numberField(t('fInnerPaddingY'), b.innerPaddingY, 0, 40, s('innerPaddingY')), numberField(t('fInnerPaddingX'), b.innerPaddingX, 0, 80, s('innerPaddingX')), alignField(ctx, b.align, s('align'))),
       ];
     case 'divider':
-      return [section('Style', colorField('Color', b.color, s('color')), numberField('Thickness', b.thickness, 1, 10, s('thickness')))];
+      return [section(ctx, 'style', t('secStyle'), color(t('fColor'), b.color, 'color'), numberField(t('fThickness'), b.thickness, 1, 10, s('thickness')))];
     case 'spacer':
-      return [section('Style', numberField('Height', b.height, 4, 200, s('height')))];
+      return [section(ctx, 'style', t('secStyle'), numberField(t('fHeight'), b.height, 4, 200, s('height')))];
     case 'html':
-      return [section('Content', textField('HTML', b.html, s('html'), true), h('p', { class: 'mc-hint' }, '⚠️ Rendered as-is in the exported email. Use only trusted content.'))];
+      return [section(ctx, 'content', t('secContent'), textField(t('fHtml'), b.html, s('html'), true), h('p', { class: 'mc-warn' }, icon('warn', 14), h('span', {}, t('htmlWarning'))))];
   }
 }
 
 function richToolbar(ctx: PanelContext, id: string): Node {
+  const { t } = ctx.i18n;
   const exec = (cmd: string, arg?: string) => {
     const el = ctx.getEditable(id);
     if (!el) return;
@@ -194,18 +235,18 @@ function richToolbar(ctx: PanelContext, id: string): Node {
     document.execCommand(cmd, false, arg);
     ctx.syncText(id);
   };
-  const btn = (label: string, title: string, fn: () => void) =>
-    h('button', { type: 'button', class: 'mc-mini', title, 'on:mousedown': (e: Event) => e.preventDefault(), 'on:click': fn }, label);
+  const btn = (ic: IconName, title: string, fn: () => void) =>
+    h('button', { type: 'button', class: 'mc-tool-btn', title, 'aria-label': title, 'on:mousedown': (e: Event) => e.preventDefault(), 'on:click': fn }, icon(ic, 16));
   return h('div', { class: 'mc-rich' },
-    btn('B', 'Bold', () => exec('bold')),
-    btn('I', 'Italic', () => exec('italic')),
-    btn('U', 'Underline', () => exec('underline')),
-    btn('• List', 'Bullet list', () => exec('insertUnorderedList')),
-    btn('1. List', 'Numbered list', () => exec('insertOrderedList')),
-    btn('🔗', 'Link', () => {
+    btn('bold', t('bold'), () => exec('bold')),
+    btn('italic', t('italic'), () => exec('italic')),
+    btn('underline', t('underline'), () => exec('underline')),
+    btn('ul', t('bulletList'), () => exec('insertUnorderedList')),
+    btn('ol', t('numberedList'), () => exec('insertOrderedList')),
+    btn('link', t('link'), () => {
       const s = window.getSelection();
       const range = s && s.rangeCount ? s.getRangeAt(0).cloneRange() : null;
-      const url = safeUrl(window.prompt('Link URL (https://…)') ?? '');
+      const url = safeUrl(window.prompt(t('linkPrompt')) ?? '');
       if (!url || !range) return;
       const el = ctx.getEditable(id);
       el?.focus();
@@ -213,6 +254,6 @@ function richToolbar(ctx: PanelContext, id: string): Node {
       s?.addRange(range);
       exec('createLink', url);
     }),
-    btn('Tx', 'Clear formatting', () => exec('removeFormat')),
+    btn('clear', t('clearFormatting'), () => exec('removeFormat')),
   );
 }

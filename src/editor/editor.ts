@@ -5,7 +5,10 @@ import { sanitizeRichText } from '../core/sanitize.js';
 import { EditorStore } from '../core/store.js';
 import type { Block, BlockType, Design, Row } from '../core/types.js';
 import { h } from './dom.js';
-import { ICON, LAYOUTS, renderPanel } from './panel.js';
+import { createI18n, type I18n, type MessageKey, type Messages } from '../i18n/index.js';
+import { icon, type IconName } from './icons.js';
+import { BLOCK_ICON, BLOCK_LABEL, LAYOUTS, layoutPreview, renderPanel } from './panel.js';
+import { applyTheme, resolveTheme, type MailcraftTheme } from './theme.js';
 import './styles.css';
 
 export interface EditorOptions {
@@ -14,6 +17,12 @@ export interface EditorOptions {
   onChange?: (design: Design) => void;
   /** Return a hosted URL for an uploaded image. Default: embed as a base64 data URL. */
   imageUploader?: (file: File) => Promise<string>;
+  /** Editor chrome theme (not the email content). Partial values are merged over the light or dark preset. */
+  theme?: Partial<MailcraftTheme>;
+  /** UI language, e.g. "en" or "ja". Default: detected from `navigator.language`, falling back to "en". */
+  locale?: string;
+  /** Custom / override dictionaries per locale. Missing keys fall back to the built-in dictionary, then to English. */
+  messages?: Record<string, Partial<Messages>>;
 }
 
 export interface EditorInstance {
@@ -22,6 +31,12 @@ export interface EditorInstance {
   exportHtml(opts?: { title?: string }): string;
   undo(): void;
   redo(): void;
+  /** Merge a partial theme into the current one and re-apply it. Does not touch the design. */
+  setTheme(theme: Partial<MailcraftTheme>): void;
+  getTheme(): MailcraftTheme;
+  /** Switch the UI language and re-render. */
+  setLocale(locale: string): void;
+  getLocale(): string;
   destroy(): void;
 }
 
@@ -31,7 +46,10 @@ type Payload =
   | { kind: 'new-row'; ratios: number[] }
   | { kind: 'move-row'; id: string };
 
-type DropTarget = { type: 'col'; colId: string; index: number } | { type: 'row'; index: number } | { type: 'first-row' };
+/** `block-row`: a block dropped between rows / outside any column becomes a new 1-column row. */
+type DropTarget = { type: 'col'; colId: string; index: number } | { type: 'row'; index: number } | { type: 'block-row'; index: number };
+
+type Tab = 'content' | 'rows' | 'body' | 'props';
 
 const BLOCK_TYPES: BlockType[] = ['text', 'heading', 'image', 'button', 'divider', 'spacer', 'html'];
 
@@ -45,43 +63,91 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
   let drag: Payload | null = null;
   let dropTarget: DropTarget | null = null;
   let focusTextId: string | null = null;
+  let tab: Tab = 'content';
+  let i18n: I18n = createI18n(options.locale, options.messages);
+  let userTheme: Partial<MailcraftTheme> = { ...(options.theme ?? {}) };
+  const collapsed = new Set<string>();
+  const t = (k: MessageKey, p?: Record<string, string | number>) => i18n.t(k, p);
 
   // ---------- skeleton ----------
   const indicator = h('div', { class: 'mc-indicator' });
   const canvas = h('div', { class: 'mc-canvas' });
-  const canvasWrap = h('div', { class: 'mc-canvas-wrap' }, canvas);
+  const page = h('div', { class: 'mc-page' }, canvas);
+  const canvasWrap = h('div', { class: 'mc-canvas-wrap' }, page);
+  const toolbar = h('div', { class: 'mc-toolbar' });
   const panel = h('aside', { class: 'mc-panel' });
-  const undoBtn = h('button', { type: 'button', title: 'Undo (Ctrl+Z)', 'on:click': () => store.undo() }, '↶');
-  const redoBtn = h('button', { type: 'button', title: 'Redo (Ctrl+Shift+Z)', 'on:click': () => store.redo() }, '↷');
-  const deviceBtns = {
-    desktop: h('button', { type: 'button', title: 'Desktop', 'on:click': () => { device = 'desktop'; renderAll(); } }, '🖥️'),
-    mobile: h('button', { type: 'button', title: 'Mobile', 'on:click': () => { device = 'mobile'; renderAll(); } }, '📱'),
-  };
-  const previewBtn = h('button', { type: 'button', title: 'Preview', 'on:click': () => { preview = !preview; renderAll(); } }, '👁️ Preview');
-  const toolbar = h('div', { class: 'mc-toolbar' }, undoBtn, redoBtn, h('span', { class: 'mc-sep' }), deviceBtns.desktop, deviceBtns.mobile, h('span', { class: 'mc-sep' }), previewBtn);
-
-  const sidebar = h('aside', { class: 'mc-sidebar' },
-    h('h4', {}, 'Blocks'),
-    h('div', { class: 'mc-palette' }, ...BLOCK_TYPES.map((t) => paletteItem(`${ICON[t]} ${t}`, { kind: 'new-block', type: t }, () => addBlockByClick(t)))),
-    h('h4', {}, 'Rows'),
-    h('div', { class: 'mc-palette' }, ...LAYOUTS.map((l) =>
-      paletteItem(`▤ ${l.label}`, { kind: 'new-row', ratios: l.ratios }, () => addRowByClick(l.ratios)))),
-  );
-
-  const root = h('div', { class: 'mc-root', tabindex: '0' }, toolbar, h('div', { class: 'mc-main' }, sidebar, canvasWrap, panel));
+  const root = h('div', { class: 'mc-root', tabindex: '0' }, toolbar, h('div', { class: 'mc-main' }, canvasWrap, panel));
   container.replaceChildren(root);
+  applyTheme(root, resolveTheme(userTheme));
+  root.lang = i18n.locale;
 
-  function paletteItem(label: string, payload: Payload, onClick: () => void) {
+  let undoBtn: HTMLButtonElement;
+  let redoBtn: HTMLButtonElement;
+
+  function tbBtn(ic: IconName, title: string, onClick: () => void, label?: string) {
+    return h('button', { type: 'button', class: 'mc-tb-btn' + (label ? ' mc-tb-text' : ''), title, 'aria-label': title, 'on:click': onClick }, icon(ic, 18), label ? h('span', {}, label) : null);
+  }
+
+  function renderToolbar() {
+    undoBtn = tbBtn('undo', `${t('undo')} (Ctrl+Z)`, () => store.undo());
+    redoBtn = tbBtn('redo', `${t('redo')} (Ctrl+Shift+Z)`, () => store.redo());
+    undoBtn.disabled = !store.canUndo;
+    redoBtn.disabled = !store.canRedo;
+    const dev = (d: 'desktop' | 'mobile') => {
+      const b = tbBtn(d, t(d), () => { device = d; renderAll(); });
+      b.classList.toggle('on', device === d);
+      return b;
+    };
+    const previewBtn = tbBtn('eye', t(preview ? 'exitPreview' : 'preview'), () => { preview = !preview; renderAll(); }, t(preview ? 'exitPreview' : 'preview'));
+    previewBtn.classList.toggle('on', preview);
+    toolbar.replaceChildren(
+      h('div', { class: 'mc-tb-group' }, undoBtn, redoBtn),
+      h('div', { class: 'mc-tb-group mc-seg-tb' }, dev('desktop'), dev('mobile')),
+      h('div', { class: 'mc-tb-group' }, previewBtn),
+    );
+  }
+
+  function paletteItem(ic: Node, label: string, attrs: Record<string, string>, payload: Payload, onClick: () => void, title = label) {
     return h('div', {
-      class: 'mc-item', draggable: 'true', 'on:click': onClick,
+      class: 'mc-item', draggable: 'true', role: 'button', tabindex: '0', title, ...attrs, 'on:click': onClick,
+      'on:keydown': (e: KeyboardEvent) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } },
       'on:dragstart': (e: DragEvent) => { drag = payload; e.dataTransfer?.setData('text/plain', label); if (e.dataTransfer) e.dataTransfer.effectAllowed = 'copyMove'; },
       'on:dragend': clearDrag,
-    }, label);
+    }, ic, h('span', { class: 'mc-item-label' }, label));
   }
+
+  function renderContentTab() {
+    return h('div', { class: 'mc-panel-inner' },
+      h('p', { class: 'mc-hint' }, t('paletteContentHint')),
+      h('div', { class: 'mc-palette' }, ...BLOCK_TYPES.map((bt) =>
+        paletteItem(icon(BLOCK_ICON[bt], 26), t(BLOCK_LABEL[bt]), { 'data-block-type': bt }, { kind: 'new-block', type: bt }, () => addBlockByClick(bt)))));
+  }
+
+  function renderRowsTab() {
+    return h('div', { class: 'mc-panel-inner' },
+      h('p', { class: 'mc-hint' }, t('paletteRowsHint')),
+      h('div', { class: 'mc-palette mc-palette-rows' }, ...LAYOUTS.map((l) =>
+        paletteItem(layoutPreview(l.ratios), l.ratios.join(' : '), { 'data-row-layout': l.ratios.join(':') }, { kind: 'new-row', ratios: l.ratios }, () => addRowByClick(l.ratios), l.ratios.length === 1 ? t('columnCount1') : t('columnsCount', { n: l.ratios.length })))));
+  }
+
+  function renderPanelEl() {
+    const sel = store.selection;
+    if (tab === 'props' && sel.kind === 'body') tab = 'content';
+    const tabs: [Tab, IconName, string][] = [['content', 'sparkle', t('tabContent')], ['rows', 'rows', t('tabRows')], ['body', 'settings', t('tabBody')]];
+    if (sel.kind !== 'body') tabs.push(['props', 'props', t('tabProperties')]);
+    const ctx = { store, i18n, syncText, getEditable, collapsed, uploadImage: options.imageUploader ?? readAsDataUrl };
+    const body = tab === 'content' ? renderContentTab() : tab === 'rows' ? renderRowsTab() : renderPanel(ctx, tab === 'props' ? 'props' : 'body');
+    panel.replaceChildren(
+      h('div', { class: 'mc-tabs', role: 'tablist' }, ...tabs.map(([k, ic, label]) =>
+        h('button', { type: 'button', role: 'tab', class: 'mc-tab' + (k === tab ? ' on' : ''), 'aria-selected': String(k === tab), 'data-tab': k, 'on:click': () => { tab = k; renderPanelEl(); } }, icon(ic, 20), h('span', {}, label)))),
+      h('div', { class: 'mc-panel-scroll' }, body));
+  }
+
+  const labels = () => ({ text: t('defaultText'), heading: t('defaultHeading'), button: t('defaultButton') });
 
   // ---------- actions ----------
   function addBlockByClick(type: BlockType) {
-    const block = createBlock(type);
+    const block = createBlock(type, labels());
     store.change((d) => {
       const s = store.selection;
       if (s.kind === 'block') {
@@ -130,19 +196,29 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     if (!p || !t) return;
     if (t.type === 'col' && (p.kind === 'new-block' || p.kind === 'move-block')) {
       if (p.kind === 'new-block') {
-        const b = createBlock(p.type);
+        const b = createBlock(p.type, labels());
         store.change((d) => { insertBlock(d, t.colId, t.index, b); });
         selectBlock(b);
       } else {
         store.change((d) => { moveBlock(d, p.id, t.colId, t.index); });
         store.select({ kind: 'block', id: p.id });
       }
-    } else if (t.type === 'first-row' && p.kind === 'new-block') {
+    } else if (t.type === 'block-row' && (p.kind === 'new-block' || p.kind === 'move-block')) {
       const row = createRow([1]);
-      const b = createBlock(p.type);
-      row.columns[0].blocks.push(b);
-      store.change((d) => insertRow(d, 0, row));
-      selectBlock(b);
+      if (p.kind === 'new-block') {
+        const b = createBlock(p.type, labels());
+        row.columns[0].blocks.push(b);
+        store.change((d) => insertRow(d, t.index, row));
+        selectBlock(b);
+      } else {
+        store.change((d) => {
+          const moved = removeBlock(d, p.id);
+          if (!moved) return;
+          row.columns[0].blocks.push(moved);
+          insertRow(d, t.index, row);
+        });
+        store.select({ kind: 'block', id: p.id });
+      }
     } else if (t.type === 'row' && (p.kind === 'new-row' || p.kind === 'move-row')) {
       if (p.kind === 'new-row') {
         const row = createRow(p.ratios);
@@ -163,23 +239,24 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
 
   // ---------- canvas ----------
   function actionBtns(onUp: () => void, onDown: () => void, onDup: () => void, onDel: () => void) {
-    const mk = (l: string, title: string, fn: () => void) => h('button', { type: 'button', title, 'on:click': (e: Event) => { e.stopPropagation(); fn(); } }, l);
-    return [mk('↑', 'Move up', onUp), mk('↓', 'Move down', onDown), mk('⧉', 'Duplicate', onDup), mk('🗑', 'Delete', onDel)];
+    const mk = (ic: IconName, title: string, fn: () => void) =>
+      h('button', { type: 'button', title, 'aria-label': title, 'on:click': (e: Event) => { e.stopPropagation(); fn(); } }, icon(ic, 15));
+    return [mk('up', t('moveUp'), onUp), mk('down', t('moveDown'), onDown), mk('copy', t('duplicate'), onDup), mk('trash', t('delete'), onDel)];
   }
 
   function handle(payload: Payload, dragImageOf: () => HTMLElement) {
     return h('span', {
-      class: 'mc-handle', draggable: 'true', title: 'Drag to move',
+      class: 'mc-handle', draggable: 'true', title: t('dragToMove'),
       'on:dragstart': (e: DragEvent) => { drag = payload; canvas.classList.add('mc-dragging'); e.dataTransfer?.setData('text/plain', 'move'); e.dataTransfer?.setDragImage(dragImageOf(), 0, 0); e.stopPropagation(); },
       'on:dragend': clearDrag,
-    }, '⠿');
+    }, icon('grip', 16));
   }
 
   function renderBlock(b: Block): HTMLElement {
     const selected = store.selection.kind === 'block' && store.selection.id === b.id;
     const content = h('div', { class: 'mc-block-content' });
     const safe: Block = b.type === 'text' || b.type === 'html' ? { ...b, html: sanitizeRichText(b.html) } : b;
-    if (b.type === 'image' && !b.src) content.append(h('div', { class: 'mc-img-ph' }, '🖼️ Select an image in the panel →'));
+    if (b.type === 'image' && !b.src) content.append(h('div', { class: 'mc-img-ph' }, icon('image', 28), h('span', {}, t('imagePlaceholder'))));
     else content.innerHTML = renderBlockContent(safe);
 
     if (b.type === 'text') {
@@ -196,7 +273,7 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
       if (preview || (store.selection.kind === 'block' && store.selection.id === b.id)) return;
       selectBlock(b);
     } },
-      preview ? null : h('div', { class: 'mc-chrome' }, handle({ kind: 'move-block', id: b.id }, () => el), ...actionBtns(
+      preview ? null : h('div', { class: 'mc-chrome' }, handle({ kind: 'move-block', id: b.id }, () => el), h('span', { class: 'mc-tag' }, t(BLOCK_LABEL[b.type])), ...actionBtns(
         () => store.change((d) => shiftBlock(d, b.id, -1)), () => store.change((d) => shiftBlock(d, b.id, 1)),
         () => store.change((d) => { duplicateBlock(d, b.id); }), deleteSelectedOrThis(b.id))),
       content);
@@ -211,19 +288,11 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     const selected = store.selection.kind === 'row' && store.selection.id === row.id;
     const cols = row.columns.map((col, i) => {
       const colEl = h('div', { class: 'mc-col', 'data-col': col.id, style: `flex:${row.ratios[i]} 1 0` },
-        ...(col.blocks.length ? col.blocks.map(renderBlock) : [h('div', { class: 'mc-empty-col' }, 'Drop a block here')]));
-      colEl.addEventListener('dragover', (e) => {
-        if (!drag || (drag.kind !== 'new-block' && drag.kind !== 'move-block')) return;
-        e.preventDefault(); e.stopPropagation();
-        const { items, index } = indexByPointer(colEl, '.mc-block', (e as DragEvent).clientY);
-        dropTarget = { type: 'col', colId: col.id, index };
-        colEl.insertBefore(indicator, items[index] ?? null);
-      });
-      colEl.addEventListener('drop', (e) => { e.preventDefault(); e.stopPropagation(); applyDrop(); });
+        ...(col.blocks.length ? col.blocks.map(renderBlock) : [h('div', { class: 'mc-empty-col' }, icon('plus', 16), h('span', {}, t('dropBlockHere')))]));
       return colEl;
     });
     const el: HTMLElement = h('div', { class: 'mc-row' + (selected ? ' selected' : ''), 'data-id': row.id, 'on:click': () => { if (!preview) store.select({ kind: 'row', id: row.id }); } },
-      preview ? null : h('div', { class: 'mc-chrome mc-chrome-row' }, handle({ kind: 'move-row', id: row.id }, () => el), h('span', { class: 'mc-tag' }, 'Row'), ...actionBtns(
+      preview ? null : h('div', { class: 'mc-chrome mc-chrome-row' }, handle({ kind: 'move-row', id: row.id }, () => el), h('span', { class: 'mc-tag' }, t('rowName')), ...actionBtns(
         () => store.change((d) => shiftRow(d, row.id, -1)), () => store.change((d) => shiftRow(d, row.id, 1)),
         () => store.change((d) => { duplicateRow(d, row.id); }),
         () => { store.change((d) => removeRow(d, row.id)); store.select({ kind: 'body' }); })),
@@ -233,33 +302,45 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
 
   function renderCanvas() {
     const d = store.design;
-    canvasWrap.style.background = d.body.backgroundColor;
+    page.style.background = d.body.backgroundColor;
     canvas.className = 'mc-canvas' + (device === 'mobile' ? ' mc-mobile' : '') + (preview ? ' mc-preview' : '');
     canvas.style.cssText = `width:${device === 'mobile' ? 375 : d.body.contentWidth}px;background:${d.body.contentBackgroundColor};font-family:${d.body.fontFamily}`;
-    canvas.replaceChildren(...(d.rows.length ? d.rows.map(renderRowEl) : [h('div', { class: 'mc-empty-canvas' }, '✨ Drag a block or a row here to get started')]));
-    undoBtn.disabled = !store.canUndo;
-    redoBtn.disabled = !store.canRedo;
-    deviceBtns.desktop.classList.toggle('on', device === 'desktop');
-    deviceBtns.mobile.classList.toggle('on', device === 'mobile');
-    previewBtn.classList.toggle('on', preview);
+    canvas.replaceChildren(...(d.rows.length ? d.rows.map(renderRowEl) : [h('div', { class: 'mc-empty-canvas' }, h('span', { class: 'mc-empty-ico' }, icon('sparkle', 28)), h('strong', {}, t('emptyCanvasTitle')), h('span', {}, t('emptyCanvasHint')))]));
     root.classList.toggle('mc-previewing', preview);
+    renderToolbar();
   }
 
-  canvas.addEventListener('dragover', (e) => {
-    if (!drag) return;
-    if (drag.kind === 'new-row' || drag.kind === 'move-row') {
-      e.preventDefault();
-      const { items, index } = indexByPointer(canvas, '.mc-row', e.clientY);
-      dropTarget = { type: 'row', index };
-      canvas.insertBefore(indicator, items[index] ?? null);
-    } else if (!store.design.rows.length) {
-      e.preventDefault();
-      dropTarget = { type: 'first-row' };
+  /** Work out the drop target under the pointer and move the indicator there. Returns false when nothing is droppable. */
+  function updateDropTarget(e: DragEvent): boolean {
+    if (!drag) return false;
+    const isBlock = drag.kind === 'new-block' || drag.kind === 'move-block';
+    const colEl = isBlock ? (e.target as HTMLElement).closest?.<HTMLElement>('.mc-col') : null;
+    if (colEl && canvas.contains(colEl) && colEl.dataset.col) {
+      const { items, index } = indexByPointer(colEl, '.mc-block', e.clientY);
+      dropTarget = { type: 'col', colId: colEl.dataset.col, index };
+      colEl.insertBefore(indicator, items[index] ?? null);
+      return true;
     }
+    // Row level: row tiles / moved rows, or a block released outside every column (-> new 1-column row).
+    const { items, index } = indexByPointer(canvas, '.mc-row', e.clientY);
+    dropTarget = isBlock ? { type: 'block-row', index } : { type: 'row', index };
+    canvas.insertBefore(indicator, items[index] ?? null);
+    return true;
+  }
+  canvasWrap.addEventListener('dragover', (e) => {
+    if (updateDropTarget(e)) { e.preventDefault(); if (e.dataTransfer) e.dataTransfer.dropEffect = drag?.kind.startsWith('move') ? 'move' : 'copy'; }
   });
-  canvas.addEventListener('drop', (e) => { e.preventDefault(); applyDrop(); });
+  canvasWrap.addEventListener('dragleave', (e) => {
+    const to = e.relatedTarget as Node | null;
+    if (!to || !canvasWrap.contains(to)) { dropTarget = null; indicator.remove(); }
+  });
+  canvasWrap.addEventListener('drop', (e) => { e.preventDefault(); applyDrop(); });
+  // Whatever happens (cancelled drop, drop outside the canvas), never leave a stale indicator or drag state behind.
+  const onDragEnd = () => clearDrag();
+  document.addEventListener('dragend', onDragEnd, true);
+  document.addEventListener('drop', onDragEnd);
   canvas.addEventListener('click', (e) => { if ((e.target as HTMLElement).closest('a')) e.preventDefault(); });
-  canvasWrap.addEventListener('click', (e) => { if (e.target === canvasWrap || e.target === canvas) store.select({ kind: 'body' }); });
+  canvasWrap.addEventListener('click', (e) => { if (e.target === canvasWrap || e.target === page || e.target === canvas) store.select({ kind: 'body' }); });
 
   // ---------- text sync ----------
   function getEditable(id: string) {
@@ -273,21 +354,19 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     undoBtn.disabled = !store.canUndo;
   }
 
-  // ---------- panel ----------
-  function renderPanelEl() {
-    panel.replaceChildren(renderPanel({
-      store, syncText, getEditable,
-      uploadImage: options.imageUploader ?? readAsDataUrl,
-    }));
-  }
-
   function renderAll() {
     renderCanvas();
     renderPanelEl();
   }
 
+  const selKey = () => { const s = store.selection; return s.kind === 'body' ? 'body' : `${s.kind}:${s.id}`; };
+  let lastSel = selKey();
   const unsubscribe = store.subscribe((scope) => {
-    if (scope === 'all') renderAll();
+    if (scope === 'all') {
+      const k = selKey();
+      if (k !== lastSel) { lastSel = k; tab = store.selection.kind === 'body' ? (tab === 'props' ? 'content' : tab) : 'props'; }
+      renderAll();
+    }
     else if (scope === 'canvas') renderCanvas();
     options.onChange?.(structuredClone(store.design));
   });
@@ -313,6 +392,17 @@ export function createEditor(container: HTMLElement, options: EditorOptions = {}
     exportHtml: (opts) => renderHtml(store.design, opts),
     undo: () => store.undo(),
     redo: () => store.redo(),
-    destroy: () => { unsubscribe(); container.replaceChildren(); },
+    setTheme: (patch) => {
+      userTheme = { ...userTheme, ...patch };
+      applyTheme(root, resolveTheme(userTheme));
+    },
+    getTheme: () => resolveTheme(userTheme),
+    setLocale: (code) => {
+      i18n = createI18n(code, options.messages);
+      root.lang = i18n.locale;
+      renderAll();
+    },
+    getLocale: () => i18n.locale,
+    destroy: () => { unsubscribe(); document.removeEventListener('dragend', onDragEnd, true); document.removeEventListener('drop', onDragEnd); container.replaceChildren(); },
   };
 }

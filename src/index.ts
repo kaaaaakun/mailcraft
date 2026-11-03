@@ -1,5 +1,9 @@
 export { createEditor } from './editor/editor.js';
 export type { EditorOptions, EditorInstance } from './editor/editor.js';
+export { defaultTheme, darkTheme } from './editor/theme.js';
+export type { MailcraftTheme } from './editor/theme.js';
+export { locales, createI18n } from './i18n/index.js';
+export type { Messages, MessageKey, I18n } from './i18n/index.js';
 export { renderHtml } from './core/render.js';
 export { createDesign, createSampleDesign, createBlock, createRow } from './core/defaults.js';
 export type * from './core/types.js';
